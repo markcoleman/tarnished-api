@@ -1,4 +1,4 @@
-use actix_web::{App, HttpResponse, Error, HttpServer};
+use actix_web::{App, Error, HttpResponse, HttpServer};
 use paperclip::actix::{
     // extension trait for actix_web::App and proc-macro attributes
     OpenApiExt, api_v2_operation, Apiv2Schema,
@@ -29,11 +29,75 @@ async fn health() -> Result<web::Json<HealthResponse>, Error> {
     Ok(web::Json(response))
 }
 
+const INDEX_HTML: &str = r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tarnished API - OpenAPI Spec</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+        }
+        pre {
+            background: #eee;
+            padding: 20px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tarnished API OpenAPI Spec</h1>
+        <pre id="openapi">Loading...</pre>
+    </div>
+    <script>
+        fetch('/api/spec/v2')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('openapi').textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(error => {
+                document.getElementById('openapi').textContent = 'Error loading spec: ' + error;
+            });
+    </script>
+</body>
+</html>"#;
+
+
+#[api_v2_operation (
+    summary = "Hello World Endpoint",
+    description = "Returns a simple hello world message.",
+    tags("Hello"),
+    responses(
+        (status = 200, description = "Successful response")
+    )
+)]
+async fn index() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(INDEX_HTML)
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Initialize logger (make sure to run with RUST_LOG=info, for example)
     env_logger::init();
-
 
     // Print a startup message for convenience.
     println!("Server running at http://127.0.0.1:8080");
@@ -49,6 +113,10 @@ async fn main() -> std::io::Result<()> {
                 },
                 ..Default::default()
             })
+            .service(
+                web::resource("/")
+                    .route(web::get().to(index))
+            )
             .service(
                 web::resource("/api/health")
                     .route(web::get().to(health))
