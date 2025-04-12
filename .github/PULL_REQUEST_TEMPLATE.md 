@@ -1,0 +1,31 @@
+# Pull Request Title
+
+## Description
+Please include a summary of the changes and the issue addressed. Describe your changes in detail and explain your rationale.
+
+## Related Issue(s)
+- Closes # (if applicable)
+- Relates to #
+
+## Proposed Changes
+- List the key changes introduced (e.g., new features, bug fixes, refactors)
+- Describe any architectural or high-level design changes
+
+## How to Test
+Provide detailed instructions on how to verify the changes. For example:
+1. Run `cargo test` to execute the test suite.
+2. Follow any specific testing instructions (e.g., manual testing steps).
+3. For Docker-related changes, run:
+   - `docker buildx bake --push` and verify the image on your registry.
+4. Open [http://127.0.0.1:8080/api/health](http://127.0.0.1:8080/api/health) (if applicable) to check the endpoint behavior.
+
+## Checklist
+- [ ] My code follows the existing style guidelines.
+- [ ] I have performed a self-review of my code.
+- [ ] I have commented my code where necessary.
+- [ ] I have added tests that prove my fix is effective or my feature works.
+- [ ] I have updated documentation (if applicable).
+- [ ] Any dependent changes have been merged and published.
+
+## Additional Context
+Add any additional context, screenshots, logs, or information that could help reviewers understand and test your changes.
