@@ -1,5 +1,7 @@
 # Tarnished API
 
+[![Rust CI](https://github.com/markcoleman/tarnished-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/markcoleman/tarnished-api/actions/workflows/ci.yml)
+
 Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix.rs) and [Paperclip](https://github.com/wafflespeanut/paperclip). This repository demonstrates how to create a well-documented REST API with automatic OpenAPI specification generation, integrated health-check endpoints, and a beautifully styled index page that displays the OpenAPI spec in a user-friendly format.
 
 ## Features
