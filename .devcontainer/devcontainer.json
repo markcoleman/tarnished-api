@@ -11,7 +11,8 @@
 		"vscode": {
 			"extensions": [
 				"openai.chatgpt",
-				"github.vscode-github-actions"
+				"github.vscode-github-actions",
+				"ms-azuretools.vscode-docker"
 			]
 		}
 	}
