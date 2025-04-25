@@ -54,25 +54,10 @@ jobs:
           components: clippy, rustfmt
 
       - name: Build
-        run: |
-          start_time=$(date +%s)
-          cargo build --verbose
-          end_time=$(date +%s)
-          duration=$((end_time - start_time))
-          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${NEW_RELIC_ACCOUNT_ID}/events" \
-            -H "Content-Type: application/json" \
-            -H "X-Insert-Key: ${NEW_RELIC_INSERT_KEY}" \
-            -d "[{
-              \"eventType\": \"GitHubActionsCI\",
-              \"repository\": \"${REPOSITORY}\",
-              \"workflow\": \"${WORKFLOW}\",
-              \"job\": \"${JOB}\",
-              \"step\": \"Build\",
-              \"duration\": ${duration},
-              \"run_id\": \"${RUN_ID}\",
-              \"timestamp\": \"${timestamp}\"
-            }]"
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "Build"
+          command: "cargo build --verbose"
 
   test:
     name: Run Tests
@@ -111,25 +96,10 @@ jobs:
           components: clippy, rustfmt
 
       - name: Run Tests
-        run: |
-          start_time=$(date +%s)
-          cargo test --verbose
-          end_time=$(date +%s)
-          duration=$((end_time - start_time))
-          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${NEW_RELIC_ACCOUNT_ID}/events" \
-            -H "Content-Type: application/json" \
-            -H "X-Insert-Key: ${NEW_RELIC_INSERT_KEY}" \
-            -d "[{
-              \"eventType\": \"GitHubActionsCI\",
-              \"repository\": \"${REPOSITORY}\",
-              \"workflow\": \"${WORKFLOW}\",
-              \"job\": \"${JOB}\",
-              \"step\": \"Run Tests\",
-              \"duration\": ${duration},
-              \"run_id\": \"${RUN_ID}\",
-              \"timestamp\": \"${timestamp}\"
-            }]"
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "Run Tests"
+          command: "cargo test --verbose"
 
   clippy:
     name: Run Clippy
@@ -168,25 +138,10 @@ jobs:
           components: clippy, rustfmt
 
       - name: Run Clippy
-        run: |
-          start_time=$(date +%s)
-          cargo clippy --all-targets --all-features -- -D warnings
-          end_time=$(date +%s)
-          duration=$((end_time - start_time))
-          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${NEW_RELIC_ACCOUNT_ID}/events" \
-            -H "Content-Type: application/json" \
-            -H "X-Insert-Key: ${NEW_RELIC_INSERT_KEY}" \
-            -d "[{
-              \"eventType\": \"GitHubActionsCI\",
-              \"repository\": \"${REPOSITORY}\",
-              \"workflow\": \"${WORKFLOW}\",
-              \"job\": \"${JOB}\",
-              \"step\": \"Run Clippy\",
-              \"duration\": ${duration},
-              \"run_id\": \"${RUN_ID}\",
-              \"timestamp\": \"${timestamp}\"
-            }]"
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "Run Clippy"
+          command: "cargo clippy --all-targets --all-features -- -D warnings"
 
   docs:
     name: Generate Documentation
@@ -219,25 +174,10 @@ jobs:
           components: clippy, rustfmt
 
       - name: Generate Documentation
-        run: |
-          start_time=$(date +%s)
-          cargo doc --no-deps --document-private-items
-          end_time=$(date +%s)
-          duration=$((end_time - start_time))
-          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${NEW_RELIC_ACCOUNT_ID}/events" \
-            -H "Content-Type: application/json" \
-            -H "X-Insert-Key: ${NEW_RELIC_INSERT_KEY}" \
-            -d "[{
-              \"eventType\": \"GitHubActionsCI\",
-              \"repository\": \"${REPOSITORY}\",
-              \"workflow\": \"${WORKFLOW}\",
-              \"job\": \"${JOB}\",
-              \"step\": \"Generate Documentation\",
-              \"duration\": ${duration},
-              \"run_id\": \"${RUN_ID}\",
-              \"timestamp\": \"${timestamp}\"
-            }]"
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "Generate Documentation"
+          command: "cargo doc --no-deps --document-private-items"
 
       - name: Upload Documentation Artifact
         uses: actions/upload-artifact@v4
@@ -278,22 +218,7 @@ jobs:
           key: ${{ runner.os }}-docker-cache-${{ hashFiles('docker-bake.hcl') }}
 
       - name: Build and Push Docker Image
-        run: |
-          start_time=$(date +%s)
-          docker buildx bake --push
-          end_time=$(date +%s)
-          duration=$((end_time - start_time))
-          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${NEW_RELIC_ACCOUNT_ID}/events" \
-            -H "Content-Type: application/json" \
-            -H "X-Insert-Key: ${NEW_RELIC_INSERT_KEY}" \
-            -d "[{
-              \"eventType\": \"GitHubActionsCI\",
-              \"repository\": \"${REPOSITORY}\",
-              \"workflow\": \"${WORKFLOW}\",
-              \"job\": \"${JOB}\",
-              \"step\": \"Build and Push Docker Image\",
-              \"duration\": ${duration},
-              \"run_id\": \"${RUN_ID}\",
-              \"timestamp\": \"${timestamp}\"
-            }]"
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "Build and Push Docker Image"
+          command: "docker buildx bake --push"

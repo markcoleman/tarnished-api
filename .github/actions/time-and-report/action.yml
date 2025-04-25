@@ -1,0 +1,34 @@
+name: "Timed Step With New Relic"
+description: "Run a command and report its duration to New Relic"
+inputs:
+  step:
+    description: "The name of the step being timed"
+    required: true
+  command:
+    description: "The command to run and time"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Run Timed Command
+      shell: bash
+      run: |
+        start_time=$(date +%s)
+        eval "${{ inputs.command }}"
+        end_time=$(date +%s)
+        duration=$((end_time - start_time))
+        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+        curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${NEW_RELIC_ACCOUNT_ID}/events" \
+          -H "Content-Type: application/json" \
+          -H "X-Insert-Key: ${NEW_RELIC_INSERT_KEY}" \
+          -d "[{
+            \"eventType\": \"GitHubActionsCI\",
+            \"repository\": \"${GITHUB_REPOSITORY}\",
+            \"workflow\": \"${GITHUB_WORKFLOW}\",
+            \"job\": \"${GITHUB_JOB}\",
+            \"step\": \"${{ inputs.step }}\",
+            \"duration\": ${duration},
+            \"run_id\": \"${GITHUB_RUN_ID}\",
+            \"timestamp\": \"${timestamp}\"
+          }]"
