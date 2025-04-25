@@ -17,6 +17,16 @@ permissions:
   actions: write
   packages: write
 
+env:
+  NEW_RELIC_INSERT_KEY: ${{ secrets.NEW_RELIC_INSERT_KEY }}
+  NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+  REPOSITORY: ${{ github.repository }}
+  WORKFLOW: ${{ github.workflow }}
+  JOB: ${{ github.job }}
+  RUN_ID: ${{ github.run_id }}
+  GITHUB_EVENT_PATH: ${{ github.event_path }}
+  GITHUB_SHA: ${{ github.sha }}
+
 jobs:
   build:
     name: Build
@@ -47,7 +57,16 @@ jobs:
           components: clippy, rustfmt
 
       - name: Build
-        run: cargo build --verbose
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "build"
+          command: "cargo build --verbose"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarnished-api-binary
+          path: target/release/tarnished-api
 
   test:
     name: Run Tests
@@ -79,7 +98,10 @@ jobs:
           components: clippy, rustfmt
 
       - name: Run Tests
-        run: cargo test --verbose
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "run_tests"
+          command: "cargo test --verbose"
 
   clippy:
     name: Run Clippy
@@ -111,7 +133,10 @@ jobs:
           components: clippy, rustfmt
 
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "run_clippy"
+          command: "cargo clippy --all-targets --all-features -- -D warnings"
 
   docs:
     name: Generate Documentation
@@ -137,7 +162,10 @@ jobs:
           components: clippy, rustfmt
 
       - name: Generate Documentation
-        run: cargo doc --no-deps --document-private-items
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "generate_documentation"
+          command: "cargo doc --no-deps --document-private-items"
 
       - name: Upload Documentation Artifact
         uses: actions/upload-artifact@v4
@@ -171,4 +199,7 @@ jobs:
           key: ${{ runner.os }}-docker-cache-${{ hashFiles('docker-bake.hcl') }}
 
       - name: Build and Push Docker Image
-        run: docker buildx bake --push
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "build_and_push_docker_image"
+          command: "docker buildx bake --push"
