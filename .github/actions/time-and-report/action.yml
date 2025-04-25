@@ -13,13 +13,22 @@ runs:
     - name: Run Timed Command
       shell: bash
       run: |
+        if ! command -v jq &> /dev/null; then
+          echo "jq is required but not installed. Skipping New Relic reporting."
+          exit 0
+        fi
+
         start_time=$(date +%s)
-        eval "${{ inputs.command }}"
+        bash -c "${{ inputs.command }}"
         end_time=$(date +%s)
         duration=$((end_time - start_time))
         timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
         pr_number=$(jq -r '.pull_request.number // empty' "$GITHUB_EVENT_PATH")
+        commit_message=$(jq -r '.head_commit.message // .pull_request.title // empty' "$GITHUB_EVENT_PATH")
+
+        echo "🕒 '${{ inputs.step }}' took ${duration}s"
+        echo "📡 Sending data to New Relic..."
 
         curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${NEW_RELIC_ACCOUNT_ID}/events" \
           -H "Content-Type: application/json" \
@@ -39,5 +48,6 @@ runs:
             \"event_name\": \"${GITHUB_EVENT_NAME}\",
             \"head_ref\": \"${GITHUB_HEAD_REF}\",
             \"base_ref\": \"${GITHUB_BASE_REF}\",
-            \"pr_number\": \"${pr_number}\"
+            \"pr_number\": \"${pr_number}\",
+            \"commit_message\": \"${commit_message}\"
           }]"
