@@ -1,0 +1,71 @@
+name: GitHub Workflow Timing Collector
+
+on:
+  workflow_run:
+    workflows: ["Rust CI"] # <-- List the workflows you want to monitor
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  NEW_RELIC_INSERT_KEY: ${{ secrets.NEW_RELIC_INSERT_KEY }}
+  NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+
+jobs:
+  collect_timings:
+    name: Collect and Send Workflow Timings
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch Jobs and Steps
+        run: |
+          echo "Fetching jobs and steps for run ID: ${{ github.event.workflow_run.id }}"
+
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" \
+               -o jobs.json
+
+      - name: Format Jobs and Steps
+        run: |
+          echo "Formatting jobs.json..."
+          jq -c '.jobs[] | {
+            repository: "${{ github.repository }}",
+            workflow_name: "${{ github.event.workflow.name }}",
+            run_id: "${{ github.event.workflow_run.id }}",
+            job_id: .id,
+            job_name: .name,
+            job_status: .status,
+            job_conclusion: .conclusion,
+            job_started_at: .started_at,
+            job_completed_at: .completed_at,
+            steps: [
+              .steps[] | {
+                step_name: .name,
+                step_status: .status,
+                step_conclusion: .conclusion,
+                step_started_at: .started_at,
+                step_completed_at: .completed_at
+              }
+            ]
+          }' jobs.json > formatted_jobs.json
+
+      - name: Send Timings to New Relic
+        run: |
+          echo "Sending timing data to New Relic..."
+          while IFS= read -r line
+          do
+            curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${{ secrets.NEW_RELIC_ACCOUNT_ID }}/events" \
+              -H "Content-Type: application/json" \
+              -H "X-Insert-Key: ${{ secrets.NEW_RELIC_INSERT_KEY }}" \
+              -d "[
+                {
+                  \"eventType\": \"GitHubWorkflowTiming\",
+                  \"timestamp\": $(date +%s),
+                  \"data\": $line
+                }
+              ]"
+          done < formatted_jobs.json
