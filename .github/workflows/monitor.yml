@@ -30,7 +30,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Fetch Latest Workflow Run ID
         run: |
           set -e
@@ -104,15 +104,12 @@ jobs:
           set -e
           echo "Starting to send timing data to New Relic..."
 
-          while IFS= read -r line; do
-            # Each $line is a JSON object for a job
-            event=$(jq -c --argjson obj "$line" \
-              '{eventType: "GitHubWorkflowTiming"} + $obj' <<<"$line")
-            echo "Sending event to New Relic: $event"
-            curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${{ secrets.NEW_RELIC_ACCOUNT_ID }}/events" \
-              -H "Content-Type: application/json" \
-              -H "X-Insert-Key: ${{ secrets.NEW_RELIC_INSERT_KEY }}" \
-              -d "[$event]"
-          done < formatted_jobs.json
+          events=$(jq -c '[.[] | . + {eventType: "GitHubWorkflowTiming"}]' formatted_jobs.json)
+          echo "$events"
+          
+          curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${{ secrets.NEW_RELIC_ACCOUNT_ID }}/events" \
+            -H "Content-Type: application/json" \
+            -H "X-Insert-Key: ${{ secrets.NEW_RELIC_INSERT_KEY }}" \
+            -d "$events"
 
           echo "Finished sending timing data to New Relic."
