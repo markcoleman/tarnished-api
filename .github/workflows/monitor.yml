@@ -13,6 +13,8 @@ permissions:
 env:
   NEW_RELIC_INSERT_KEY: ${{ secrets.NEW_RELIC_INSERT_KEY }}
   NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+  REPO: ${{ github.repository }}
+  WORKFLOW_NAME: ${{ github.event.workflow.name }}
 
 jobs:
   collect_timings:
@@ -20,52 +22,80 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Fetch Latest Workflow Run ID
+        run: |
+          set -e
+          echo "Starting to fetch latest completed workflow run ID for workflow: $WORKFLOW_NAME"
+
+          echo "Fetching latest runs JSON..."
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "https://api.github.com/repos/$REPO/actions/workflows/$WORKFLOW_NAME/runs?status=completed&per_page=1" -o latest_runs.json
+
+          echo "Contents of latest_runs.json:"
+          cat latest_runs.json
+
+          latest_run_id=$(jq -r '.workflow_runs[0].id' latest_runs.json)
+
+          echo "Latest run ID: $latest_run_id"
+          echo "LATEST_RUN_ID=$latest_run_id" >> $GITHUB_ENV
+
+          echo "Finished fetching latest workflow run ID."
+
       - name: Fetch Jobs and Steps
         run: |
-          echo "Fetching jobs and steps for run ID: ${{ github.event.workflow_run.id }}"
+          set -e
+          echo "Starting to fetch jobs and steps for run ID: $LATEST_RUN_ID"
 
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                -H "Accept: application/vnd.github.v3+json" \
-               "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" \
+               "https://api.github.com/repos/$REPO/actions/runs/$LATEST_RUN_ID/jobs" \
                -o jobs.json
+
+          echo "Contents of jobs.json:"
+          cat jobs.json
+
+          echo "Finished fetching jobs and steps."
+
+      - name: Upload jobs.json Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: jobs-json
+          path: jobs.json
 
       - name: Format Jobs and Steps
         run: |
-          echo "Formatting jobs.json..."
-          jq -c '.jobs[] | {
-            repository: "${{ github.repository }}",
-            workflow_name: "${{ github.event.workflow.name }}",
-            run_id: "${{ github.event.workflow_run.id }}",
-            job_id: .id,
-            job_name: .name,
-            job_status: .status,
-            job_conclusion: .conclusion,
-            job_started_at: .started_at,
-            job_completed_at: .completed_at,
-            steps: [
-              .steps[] | {
-                step_name: .name,
-                step_status: .status,
-                step_conclusion: .conclusion,
-                step_started_at: .started_at,
-                step_completed_at: .completed_at
-              }
-            ]
-          }' jobs.json > formatted_jobs.json
+          set -e
+          echo "Starting to format jobs.json..."
+          bash .github/scripts/format-jobs.sh jobs.json $LATEST_RUN_ID "$REPO" "$WORKFLOW_NAME"
+
+          echo "Contents of formatted_jobs.json:"
+          cat formatted_jobs.json
+
+          echo "Finished formatting jobs and steps."
+
+      - name: Upload formatted_jobs.json Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: formatted-jobs-json
+          path: formatted_jobs.json
 
       - name: Send Timings to New Relic
         run: |
-          echo "Sending timing data to New Relic..."
-          while IFS= read -r line
-          do
-            curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${{ secrets.NEW_RELIC_ACCOUNT_ID }}/events" \
-              -H "Content-Type: application/json" \
-              -H "X-Insert-Key: ${{ secrets.NEW_RELIC_INSERT_KEY }}" \
-              -d "[
-                {
-                  \"eventType\": \"GitHubWorkflowTiming\",
-                  \"timestamp\": $(date +%s),
-                  \"data\": $line
-                }
-              ]"
-          done < formatted_jobs.json
+          set -e
+          echo "Starting to send timing data to New Relic..."
+
+          data=$(jq -c '[.[]]' formatted_jobs.json)
+
+          curl -X POST "https://insights-collector.newrelic.com/v1/accounts/${{ secrets.NEW_RELIC_ACCOUNT_ID }}/events" \
+            -H "Content-Type: application/json" \
+            -H "X-Insert-Key: ${{ secrets.NEW_RELIC_INSERT_KEY }}" \
+            -d "[
+                  {
+                    \"eventType\": \"GitHubWorkflowTiming\",
+                    \"timestamp\": $(date +%s),
+                    \"data\": $data
+                  }
+                ]"
+
+          echo "Finished sending timing data to New Relic."
