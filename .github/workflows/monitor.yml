@@ -73,7 +73,8 @@ jobs:
         run: |
           set -e
           echo "Starting to format jobs.json..."
-          bash ${GITHUB_WORKSPACE}/.github/scripts/format-jobs.sh jobs.json $LATEST_RUN_ID "$REPO" "$WORKFLOW_NAME"
+          chmod +x .github/scripts/format-jobs.sh
+          .github/scripts/format-jobs.sh jobs.json $LATEST_RUN_ID "$REPO" "$WORKFLOW_NAME"
 
           echo "Contents of formatted_jobs.json:"
           cat formatted_jobs.json
