@@ -72,10 +72,10 @@ jobs:
       - name: Format Jobs and Steps
         run: |
           pwd
-          ls -l .github/scripts/
+          ls -l ${GITHUB_WORKSPACE}/.github/scripts/
           set -e
           echo "Starting to format jobs.json..."
-          bash .github/scripts/format-jobs.sh jobs.json $LATEST_RUN_ID "$REPO" "$WORKFLOW_NAME"
+          bash ${GITHUB_WORKSPACE}/.github/scripts/format-jobs.sh jobs.json $LATEST_RUN_ID "$REPO" "$WORKFLOW_NAME"
 
           echo "Contents of formatted_jobs.json:"
           cat formatted_jobs.json
