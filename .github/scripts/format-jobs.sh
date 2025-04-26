@@ -6,7 +6,7 @@ LATEST_RUN_ID="$2"
 REPO="$3"
 WORKFLOW_NAME="$4"
 
-jq -c '.jobs[] | {
+jq -c '[.jobs[] | {
   repository: "'$REPO'",
   workflow_name: "'$WORKFLOW_NAME'",
   run_id: "'$LATEST_RUN_ID'",
@@ -25,4 +25,4 @@ jq -c '.jobs[] | {
       step_completed_at: .completed_at
     }
   ]
-}' "$INPUT_FILE" > formatted_jobs.json
+}]' "$INPUT_FILE" > formatted_jobs.json

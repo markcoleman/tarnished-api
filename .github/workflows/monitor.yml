@@ -14,7 +14,7 @@ env:
   NEW_RELIC_INSERT_KEY: ${{ secrets.NEW_RELIC_INSERT_KEY }}
   NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
   REPO: ${{ github.repository }}
-  WORKFLOW_NAME: ${{ github.event.workflow.name }}
+  WORKFLOW_NAME: ci.yml
 
 jobs:
   collect_timings:
