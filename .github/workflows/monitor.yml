@@ -72,7 +72,15 @@ jobs:
       - name: Format Jobs and Steps
         run: |
           set -e
-          ls -A
+          echo "Current working directory:"
+          pwd
+
+          echo "Top-level contents:"
+          ls -al
+
+          echo "All directories and files recursively under current working directory:"
+          find . -type d -print
+          find . -type f -print
           echo "Starting to format jobs.json..."
           chmod +x .github/scripts/format-jobs.sh
           .github/scripts/format-jobs.sh jobs.json $LATEST_RUN_ID "$REPO" "$WORKFLOW_NAME"
