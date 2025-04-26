@@ -5,6 +5,12 @@ on:
     workflows: ["Rust CI"] # <-- List the workflows you want to monitor
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      workflow_name:
+        description: 'Workflow name to monitor'
+        required: false
+        default: 'ci.yml'
 
 permissions:
   contents: read
@@ -14,7 +20,7 @@ env:
   NEW_RELIC_INSERT_KEY: ${{ secrets.NEW_RELIC_INSERT_KEY }}
   NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
   REPO: ${{ github.repository }}
-  WORKFLOW_NAME: ci.yml
+  WORKFLOW_NAME: ci.yml # Default workflow name
 
 jobs:
   collect_timings:
