@@ -1,33 +1,11 @@
-use actix_web::{App, Error, HttpResponse, HttpServer};
+use actix_web::{App, HttpResponse, HttpServer};
 use paperclip::actix::{
     // extension trait for actix_web::App and proc-macro attributes
-    OpenApiExt, api_v2_operation, Apiv2Schema,
+    OpenApiExt, api_v2_operation,
     // Import the paperclip web module
     web::{self},
 };
-use paperclip::v2::models::{DefaultApiRaw, Info};
-use serde::{Serialize, Deserialize};
-
-// Define a schema for the health response
-#[derive(Serialize, Deserialize, Apiv2Schema)]
-pub struct HealthResponse {
-    pub status: String,
-}
-
-#[api_v2_operation(
-    summary = "Health Check Endpoint",
-    description = "Returns the current health status of the API in JSON format.",
-    tags("Health"),
-    responses(
-        (status = 200, description = "Successful response", body = HealthResponse)
-    )
-)]
-async fn health() -> Result<web::Json<HealthResponse>, Error> {
-    let response = HealthResponse {
-        status: "healthy".to_string(),
-    };
-    Ok(web::Json(response))
-}
+use tarnished_api::{create_openapi_spec, health};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -104,15 +82,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
-            .wrap_api_with_spec(DefaultApiRaw {
-                info: Info {
-                    title: "Tarnished API".into(),
-                    version: "1.0.0".into(),
-                    description: Some("A sample API built with Actix and Paperclip".into()),
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
+            .wrap_api_with_spec(create_openapi_spec())
             .service(
                 web::resource("/")
                     .route(web::get().to(index))
@@ -129,11 +99,10 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-// Unit tests for the health endpoint
 #[cfg(test)]
 mod tests {
-    use super::*;
     use actix_web::{test, web, App};
+    use tarnished_api::health;
 
     #[actix_web::test]
     async fn test_health() {
