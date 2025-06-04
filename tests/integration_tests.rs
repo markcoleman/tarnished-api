@@ -1,29 +1,5 @@
-use actix_web::{test, App, http::StatusCode};
-use paperclip::actix::{OpenApiExt, api_v2_operation, Apiv2Schema, web};
-use paperclip::v2::models::{DefaultApiRaw, Info};
-use serde::{Serialize, Deserialize};
-
-// Re-declare the types and functions needed for testing
-// (In a real project, these would be imported from the main crate)
-#[derive(Serialize, Deserialize, Apiv2Schema)]
-pub struct HealthResponse {
-    pub status: String,
-}
-
-#[api_v2_operation(
-    summary = "Health Check Endpoint",
-    description = "Returns the current health status of the API in JSON format.",
-    tags("Health"),
-    responses(
-        (status = 200, description = "Successful response", body = HealthResponse)
-    )
-)]
-async fn health() -> Result<web::Json<HealthResponse>, actix_web::Error> {
-    let response = HealthResponse {
-        status: "healthy".to_string(),
-    };
-    Ok(web::Json(response))
-}
+use actix_web::{test, http::StatusCode};
+use tarnished_api::create_base_app;
 
 /// Integration test for the health check endpoint
 /// 
@@ -37,24 +13,7 @@ async fn health() -> Result<web::Json<HealthResponse>, actix_web::Error> {
 #[actix_web::test]
 async fn test_health_endpoint_integration() {
     // Create a test service with the same configuration as the main app
-    let app = test::init_service(
-        App::new()
-            .wrap_api_with_spec(DefaultApiRaw {
-                info: Info {
-                    title: "Tarnished API".into(),
-                    version: "1.0.0".into(),
-                    description: Some("A sample API built with Actix and Paperclip".into()),
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .service(
-                web::resource("/api/health")
-                    .route(web::get().to(health))
-            )
-            .with_json_spec_at("/api/spec/v2")
-            .build()
-    ).await;
+    let app = test::init_service(create_base_app()).await;
     
     // Create a test request to GET /api/health
     let req = test::TestRequest::get().uri("/api/health").to_request();
