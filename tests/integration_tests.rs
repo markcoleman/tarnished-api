@@ -1,5 +1,6 @@
 use actix_web::{test, http::StatusCode};
-use tarnished_api::create_base_app;
+use tarnished_api::{create_base_app, RateLimitConfig, SimpleRateLimiter};
+use std::env;
 
 /// Integration test for the health check endpoint
 /// 
@@ -107,4 +108,81 @@ async fn test_version_endpoint_integration() {
     // Verify that the version matches the package version
     let version_value = version.unwrap().as_str().unwrap();
     assert_eq!(version_value, "0.1.0", "Expected version to match package version");
+}
+
+/// Integration test for rate limiting functionality
+/// 
+/// This test verifies that:
+/// - Version endpoint is subject to rate limiting
+/// - Health endpoint is exempt from rate limiting
+/// - Proper 429 Too Many Requests response is returned when limit is exceeded
+#[actix_web::test]
+async fn test_rate_limiting_integration() {
+    // Set a very low rate limit for testing
+    unsafe {
+        env::set_var("RATE_LIMIT_RPM", "2");
+        env::set_var("RATE_LIMIT_PERIOD", "60");
+    }
+    
+    // Create a test service with rate limiting enabled
+    let app = test::init_service(create_base_app()).await;
+    
+    // Test version endpoint - should work for first few requests
+    let req1 = test::TestRequest::get().uri("/api/version").to_request();
+    let resp1 = test::call_service(&app, req1).await;
+    assert_eq!(resp1.status(), StatusCode::OK, "First request should succeed");
+    
+    let req2 = test::TestRequest::get().uri("/api/version").to_request();
+    let resp2 = test::call_service(&app, req2).await;
+    assert_eq!(resp2.status(), StatusCode::OK, "Second request should succeed");
+    
+    // Third request should be rate limited
+    let req3 = test::TestRequest::get().uri("/api/version").to_request();
+    let resp3 = test::call_service(&app, req3).await;
+    assert_eq!(resp3.status(), StatusCode::TOO_MANY_REQUESTS, "Third request should be rate limited");
+    
+    // Verify the error response
+    let body = test::read_body(resp3).await;
+    let body_str = std::str::from_utf8(&body).unwrap();
+    assert!(body_str.contains("Too Many Requests") || body_str.contains("Rate limit exceeded"), 
+            "Response should contain rate limit error message: {}", body_str);
+    
+    // Health endpoint should NOT be rate limited
+    let health_req1 = test::TestRequest::get().uri("/api/health").to_request();
+    let health_resp1 = test::call_service(&app, health_req1).await;
+    assert_eq!(health_resp1.status(), StatusCode::OK, "Health endpoint should not be rate limited");
+    
+    let health_req2 = test::TestRequest::get().uri("/api/health").to_request();
+    let health_resp2 = test::call_service(&app, health_req2).await;
+    assert_eq!(health_resp2.status(), StatusCode::OK, "Health endpoint should still work");
+    
+    let health_req3 = test::TestRequest::get().uri("/api/health").to_request();
+    let health_resp3 = test::call_service(&app, health_req3).await;
+    assert_eq!(health_resp3.status(), StatusCode::OK, "Health endpoint should continue to work");
+    
+    // Clean up environment variables
+    unsafe {
+        env::remove_var("RATE_LIMIT_RPM");
+        env::remove_var("RATE_LIMIT_PERIOD");
+    }
+}
+
+/// Unit test for rate limiter functionality
+#[actix_web::test]
+async fn test_rate_limiter_unit() {
+    let config = RateLimitConfig {
+        requests_per_minute: 2,
+        period_seconds: 60,
+    };
+    let limiter = SimpleRateLimiter::new(config);
+    
+    // First two requests should succeed
+    assert!(limiter.check_rate_limit("test_ip"), "First request should succeed");
+    assert!(limiter.check_rate_limit("test_ip"), "Second request should succeed");
+    
+    // Third request should fail
+    assert!(!limiter.check_rate_limit("test_ip"), "Third request should be rate limited");
+    
+    // Different IP should work fine
+    assert!(limiter.check_rate_limit("different_ip"), "Different IP should not be rate limited");
 }

@@ -5,7 +5,7 @@ use paperclip::actix::{
     // Import the paperclip web module
     web::{self},
 };
-use tarnished_api::{create_openapi_spec, health, version};
+use tarnished_api::{create_openapi_spec, health, version, RateLimitConfig, SimpleRateLimiter};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -81,8 +81,13 @@ async fn main() -> std::io::Result<()> {
     println!("Server running at http://127.0.0.1:8080");
 
     HttpServer::new(|| {
+        let config = RateLimitConfig::from_env();
+        let limiter = SimpleRateLimiter::new(config.clone());
+        
         App::new()
             .wrap_api_with_spec(create_openapi_spec())
+            .app_data(web::Data::new(config))
+            .app_data(web::Data::new(limiter))
             .service(
                 web::resource("/")
                     .route(web::get().to(index))
