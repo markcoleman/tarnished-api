@@ -60,12 +60,6 @@ jobs:
           step: "build"
           command: "cargo build --verbose"
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tarnished-api-binary
-          path: target/release/tarnished-api
-
   test:
     name: Run Tests
     runs-on: ubuntu-latest
