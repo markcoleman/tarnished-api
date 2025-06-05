@@ -1,7 +1,121 @@
-use actix_web::{App, Error};
+use actix_web::{App, Error, HttpResponse, HttpRequest, Result};
 use paperclip::actix::{OpenApiExt, api_v2_operation, Apiv2Schema, web};
 use paperclip::v2::models::{DefaultApiRaw, Info};
 use serde::{Serialize, Deserialize};
+use std::{
+    env, 
+    collections::HashMap, 
+    sync::{Arc, Mutex}, 
+    time::{Duration, Instant},
+};
+
+/// Configuration for rate limiting
+#[derive(Clone)]
+pub struct RateLimitConfig {
+    pub requests_per_minute: usize,
+    pub period_seconds: u64,
+}
+
+impl Default for RateLimitConfig {
+    fn default() -> Self {
+        Self {
+            requests_per_minute: 100,
+            period_seconds: 60,
+        }
+    }
+}
+
+impl RateLimitConfig {
+    /// Load configuration from environment variables, falling back to defaults
+    pub fn from_env() -> Self {
+        let requests_per_minute = env::var("RATE_LIMIT_RPM")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(100);
+        
+        let period_seconds = env::var("RATE_LIMIT_PERIOD")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(60);
+        
+        Self {
+            requests_per_minute,
+            period_seconds,
+        }
+    }
+}
+
+/// Simple in-memory rate limiter
+#[derive(Clone)]
+pub struct SimpleRateLimiter {
+    config: RateLimitConfig,
+    storage: Arc<Mutex<HashMap<String, (usize, Instant)>>>,
+}
+
+impl SimpleRateLimiter {
+    pub fn new(config: RateLimitConfig) -> Self {
+        Self {
+            config,
+            storage: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub fn check_rate_limit(&self, key: &str) -> bool {
+        let mut storage = self.storage.lock().unwrap();
+        let now = Instant::now();
+        
+        // Clean up expired entries
+        storage.retain(|_, (_, timestamp)| {
+            now.duration_since(*timestamp) < Duration::from_secs(self.config.period_seconds)
+        });
+
+        match storage.get_mut(key) {
+            Some((count, timestamp)) => {
+                if now.duration_since(*timestamp) < Duration::from_secs(self.config.period_seconds) {
+                    if *count >= self.config.requests_per_minute {
+                        false // Rate limit exceeded
+                    } else {
+                        *count += 1;
+                        true
+                    }
+                } else {
+                    // Reset the counter for a new period
+                    *count = 1;
+                    *timestamp = now;
+                    true
+                }
+            }
+            None => {
+                storage.insert(key.to_string(), (1, now));
+                true
+            }
+        }
+    }
+}
+
+/// Rate limiting middleware using a function-based approach
+pub fn rate_limit_middleware(
+    req: &HttpRequest,
+    limiter: &SimpleRateLimiter,
+) -> Result<(), HttpResponse> {
+    // Extract IP from request
+    let ip = req
+        .connection_info()
+        .peer_addr()
+        .unwrap_or("unknown")
+        .to_string();
+
+    if !limiter.check_rate_limit(&ip) {
+        // Rate limit exceeded, return 429
+        return Err(HttpResponse::TooManyRequests()
+            .json(serde_json::json!({
+                "error": "Too Many Requests",
+                "message": "Rate limit exceeded. Please try again later."
+            })));
+    }
+
+    Ok(())
+}
 
 // Define a schema for the health response
 #[derive(Serialize, Deserialize, Apiv2Schema)]
@@ -37,10 +151,21 @@ pub async fn health() -> Result<web::Json<HealthResponse>, Error> {
     description = "Returns the current API version, commit hash, and build time.",
     tags("Version"),
     responses(
-        (status = 200, description = "Successful response", body = VersionResponse)
+        (status = 200, description = "Successful response", body = VersionResponse),
+        (status = 429, description = "Too Many Requests")
     )
 )]
-pub async fn version() -> Result<web::Json<VersionResponse>, Error> {
+pub async fn version(req: HttpRequest) -> Result<web::Json<VersionResponse>, Error> {
+    // Check if rate limiter is available in app data
+    if let Some(limiter) = req.app_data::<web::Data<SimpleRateLimiter>>() {
+        // Apply rate limiting to version endpoint
+        if let Err(_response) = rate_limit_middleware(&req, limiter) {
+            return Err(actix_web::error::ErrorTooManyRequests(
+                "Rate limit exceeded. Please try again later."
+            ));
+        }
+    }
+
     let response = VersionResponse {
         version: env!("CARGO_PKG_VERSION").to_string(),
         commit: env!("VERGEN_GIT_SHA").to_string(),
@@ -62,7 +187,7 @@ pub fn create_openapi_spec() -> DefaultApiRaw {
     }
 }
 
-/// Creates a basic app with shared configuration (health endpoint + OpenAPI)
+/// Creates a basic app with shared configuration (health endpoint + OpenAPI + rate limiting)
 /// This can be used both for testing and as a base for the main application
 pub fn create_base_app() -> App<
     impl actix_web::dev::ServiceFactory<
@@ -73,8 +198,13 @@ pub fn create_base_app() -> App<
         InitError = (),
     >,
 > {
+    let config = RateLimitConfig::from_env();
+    let limiter = SimpleRateLimiter::new(config.clone());
+    
     App::new()
         .wrap_api_with_spec(create_openapi_spec())
+        .app_data(web::Data::new(config))
+        .app_data(web::Data::new(limiter))
         .service(
             web::resource("/api/health")
                 .route(web::get().to(health))
