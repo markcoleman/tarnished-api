@@ -9,6 +9,14 @@ pub struct HealthResponse {
     pub status: String,
 }
 
+// Define a schema for the version response
+#[derive(Serialize, Deserialize, Apiv2Schema)]
+pub struct VersionResponse {
+    pub version: String,
+    pub commit: String,
+    pub build_time: String,
+}
+
 #[api_v2_operation(
     summary = "Health Check Endpoint",
     description = "Returns the current health status of the API in JSON format.",
@@ -20,6 +28,23 @@ pub struct HealthResponse {
 pub async fn health() -> Result<web::Json<HealthResponse>, Error> {
     let response = HealthResponse {
         status: "healthy".to_string(),
+    };
+    Ok(web::Json(response))
+}
+
+#[api_v2_operation(
+    summary = "Version Information Endpoint",
+    description = "Returns the current API version, commit hash, and build time.",
+    tags("Version"),
+    responses(
+        (status = 200, description = "Successful response", body = VersionResponse)
+    )
+)]
+pub async fn version() -> Result<web::Json<VersionResponse>, Error> {
+    let response = VersionResponse {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        commit: env!("VERGEN_GIT_SHA").to_string(),
+        build_time: env!("VERGEN_BUILD_TIMESTAMP").to_string(),
     };
     Ok(web::Json(response))
 }
@@ -53,6 +78,10 @@ pub fn create_base_app() -> App<
         .service(
             web::resource("/api/health")
                 .route(web::get().to(health))
+        )
+        .service(
+            web::resource("/api/version")
+                .route(web::get().to(version))
         )
         .with_json_spec_at("/api/spec/v2")
         .build()

@@ -5,7 +5,7 @@ use paperclip::actix::{
     // Import the paperclip web module
     web::{self},
 };
-use tarnished_api::{create_openapi_spec, health};
+use tarnished_api::{create_openapi_spec, health, version};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -91,6 +91,10 @@ async fn main() -> std::io::Result<()> {
                 web::resource("/api/health")
                     .route(web::get().to(health))
             )
+            .service(
+                web::resource("/api/version")
+                    .route(web::get().to(version))
+            )
             .with_json_spec_at("/api/spec/v2")
             .build()
     })
@@ -102,7 +106,7 @@ async fn main() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use actix_web::{test, web, App};
-    use tarnished_api::health;
+    use tarnished_api::{health, version};
 
     #[actix_web::test]
     async fn test_health() {
@@ -122,5 +126,27 @@ mod tests {
         let body = test::read_body(resp).await;
         let body_str = std::str::from_utf8(&body).unwrap();
         assert!(body_str.contains("healthy"));
+    }
+
+    #[actix_web::test]
+    async fn test_version() {
+        // Create a test app with the /api/version route.
+        let app = test::init_service(
+            App::new().route("/api/version", web::get().to(version))
+        ).await;
+        
+        // Create a test request to GET /api/version.
+        let req = test::TestRequest::get().uri("/api/version").to_request();
+        let resp = test::call_service(&app, req).await;
+        
+        // Ensure the response status is successful (200 OK).
+        assert!(resp.status().is_success());
+        
+        // Check that the response body contains version, commit, and build_time fields.
+        let body = test::read_body(resp).await;
+        let body_str = std::str::from_utf8(&body).unwrap();
+        assert!(body_str.contains("version"));
+        assert!(body_str.contains("commit"));
+        assert!(body_str.contains("build_time"));
     }
 }
