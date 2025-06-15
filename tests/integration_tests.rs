@@ -1,5 +1,5 @@
 use actix_web::{test, http::StatusCode};
-use tarnished_api::{create_base_app, RateLimitConfig, SimpleRateLimiter, HmacConfig, hmac_utils};
+use tarnished_api::{create_base_app, RateLimitConfig, SimpleRateLimiter, hmac_utils};
 use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -415,4 +415,59 @@ async fn test_hmac_middleware_invalid_signature() {
         env::remove_var("HMAC_REQUIRE_SIGNATURE");
         env::remove_var("HMAC_SECRET");
     }
+}
+/// Unit test for response signature functionality
+#[actix_web::test]
+async fn test_response_signature_functionality() {
+    use tarnished_api::{HmacConfig, add_response_signature, hmac_utils};
+    use actix_web::HttpResponse;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    
+    let config = HmacConfig {
+        secret: "test-secret".to_string(),
+        timestamp_tolerance_seconds: 300,
+        require_signature: false,
+    };
+    
+    let response_body = r#"{"status":"healthy"}"#;
+    let mut response = HttpResponse::Ok().json(serde_json::json!({"status":"healthy"}));
+    
+    // Add signature to response
+    let result = add_response_signature(&mut response, response_body, &config);
+    assert!(result.is_ok(), "Should be able to add response signature");
+    
+    // Check that signature headers were added
+    let headers = response.headers();
+    let signature_header = headers.get("x-signature");
+    let timestamp_header = headers.get("x-timestamp");
+    
+    assert!(signature_header.is_some(), "Response should have X-Signature header");
+    assert!(timestamp_header.is_some(), "Response should have X-Timestamp header");
+    
+    // Verify the signature is valid
+    let signature = signature_header.unwrap().to_str().unwrap();
+    let timestamp_str = timestamp_header.unwrap().to_str().unwrap();
+    let timestamp: u64 = timestamp_str.parse().expect("Should parse timestamp");
+    
+    let is_valid = hmac_utils::validate_signature(
+        &config.secret,
+        response_body,
+        timestamp,
+        signature,
+        300
+    ).expect("Should validate signature");
+    
+    assert!(is_valid, "Generated response signature should be valid");
+    
+    // Check timestamp is recent (within last minute)
+    let current_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let time_diff = if current_time > timestamp {
+        current_time - timestamp
+    } else {
+        timestamp - current_time
+    };
+    assert!(time_diff < 60, "Timestamp should be recent (within 60 seconds)");
 }

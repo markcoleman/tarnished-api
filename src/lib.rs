@@ -292,6 +292,38 @@ pub fn hmac_signature_middleware(
     }
 }
 
+/// Add HMAC signature to outgoing response
+pub fn add_response_signature(
+    response: &mut HttpResponse,
+    body: &str,
+    config: &HmacConfig,
+) -> Result<(), String> {
+    if config.secret.is_empty() {
+        return Err("HMAC secret is empty".to_string());
+    }
+    
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("System time error: {}", e))?
+        .as_secs();
+    
+    let signature = hmac_utils::generate_signature(&config.secret, body, timestamp)?;
+    
+    response.headers_mut().insert(
+        actix_web::http::header::HeaderName::from_static("x-signature"),
+        actix_web::http::header::HeaderValue::from_str(&signature)
+            .map_err(|e| format!("Invalid signature format: {}", e))?
+    );
+    
+    response.headers_mut().insert(
+        actix_web::http::header::HeaderName::from_static("x-timestamp"),
+        actix_web::http::header::HeaderValue::from_str(&timestamp.to_string())
+            .map_err(|e| format!("Invalid timestamp format: {}", e))?
+    );
+    
+    Ok(())
+}
+
 // Define a schema for the health response
 #[derive(Serialize, Deserialize, Apiv2Schema)]
 pub struct HealthResponse {
@@ -377,7 +409,29 @@ pub fn create_openapi_spec() -> DefaultApiRaw {
         info: Info {
             title: "Tarnished API".into(),
             version: "1.0.0".into(),
-            description: Some("A sample API built with Actix and Paperclip".into()),
+            description: Some(
+                "A sample API built with Actix and Paperclip\n\n\
+                ## HMAC Signature Authentication\n\
+                This API supports optional HMAC-SHA256 signature validation for enhanced security.\n\
+                \n\
+                **Headers for signed requests:**\n\
+                - `X-Signature`: HMAC-SHA256 signature in hexadecimal format\n\
+                - `X-Timestamp`: Unix timestamp (seconds since epoch)\n\
+                \n\
+                **Signature calculation:**\n\
+                1. Create message: `{timestamp}.{request_body}`\n\
+                2. Calculate HMAC-SHA256 using shared secret\n\
+                3. Encode result as hexadecimal string\n\
+                \n\
+                **Configuration:**\n\
+                - Set `HMAC_REQUIRE_SIGNATURE=true` to enforce signature validation\n\
+                - Set `HMAC_SECRET` to configure the shared secret\n\
+                - Set `HMAC_TIMESTAMP_TOLERANCE` to configure timestamp tolerance (default: 300 seconds)\n\
+                \n\
+                **Response signatures:**\n\
+                - Responses may include `X-Signature` and `X-Timestamp` headers for client verification\n\
+                - Signature is calculated using the same method as request signatures".into()
+            ),
             ..Default::default()
         },
         ..Default::default()
