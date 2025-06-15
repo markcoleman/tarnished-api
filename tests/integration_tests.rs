@@ -1,6 +1,7 @@
 use actix_web::{test, http::StatusCode};
-use tarnished_api::{create_base_app, RateLimitConfig, SimpleRateLimiter};
+use tarnished_api::{create_base_app, RateLimitConfig, SimpleRateLimiter, HmacConfig, hmac_utils};
 use std::env;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Integration test for the health check endpoint
 /// 
@@ -13,6 +14,12 @@ use std::env;
 /// This ensures the /api/health endpoint works correctly after any changes or deployments.
 #[actix_web::test]
 async fn test_health_endpoint_integration() {
+    // Ensure HMAC is not required for backward compatibility
+    unsafe {
+        env::remove_var("HMAC_REQUIRE_SIGNATURE"); // Explicitly remove first
+        env::set_var("HMAC_REQUIRE_SIGNATURE", "false");
+    }
+    
     // Create a test service with the same configuration as the main app
     let app = test::init_service(create_base_app()).await;
     
@@ -53,6 +60,11 @@ async fn test_health_endpoint_integration() {
         "status": "healthy"
     });
     assert_eq!(json, expected_json, "Response JSON should match expected structure");
+    
+    // Clean up
+    unsafe {
+        env::remove_var("HMAC_REQUIRE_SIGNATURE");
+    }
 }
 
 /// Integration test for the version endpoint
@@ -65,6 +77,11 @@ async fn test_health_endpoint_integration() {
 /// This ensures the /api/version endpoint works correctly after any changes or deployments.
 #[actix_web::test]
 async fn test_version_endpoint_integration() {
+    // Ensure HMAC is not required for backward compatibility
+    unsafe {
+        env::set_var("HMAC_REQUIRE_SIGNATURE", "false");
+    }
+    
     // Create a test service with the same configuration as the main app
     let app = test::init_service(create_base_app()).await;
     
@@ -108,6 +125,11 @@ async fn test_version_endpoint_integration() {
     // Verify that the version matches the package version
     let version_value = version.unwrap().as_str().unwrap();
     assert_eq!(version_value, "0.1.0", "Expected version to match package version");
+    
+    // Clean up
+    unsafe {
+        env::remove_var("HMAC_REQUIRE_SIGNATURE");
+    }
 }
 
 /// Integration test for rate limiting functionality
@@ -122,6 +144,7 @@ async fn test_rate_limiting_integration() {
     unsafe {
         env::set_var("RATE_LIMIT_RPM", "2");
         env::set_var("RATE_LIMIT_PERIOD", "60");
+        env::set_var("HMAC_REQUIRE_SIGNATURE", "false"); // Disable HMAC for this test
     }
     
     // Create a test service with rate limiting enabled
@@ -164,6 +187,7 @@ async fn test_rate_limiting_integration() {
     unsafe {
         env::remove_var("RATE_LIMIT_RPM");
         env::remove_var("RATE_LIMIT_PERIOD");
+        env::remove_var("HMAC_REQUIRE_SIGNATURE");
     }
 }
 
@@ -185,4 +209,210 @@ async fn test_rate_limiter_unit() {
     
     // Different IP should work fine
     assert!(limiter.check_rate_limit("different_ip"), "Different IP should not be rate limited");
+}
+
+/// Unit tests for HMAC signature functionality
+#[actix_web::test]
+async fn test_hmac_signature_generation() {
+    let secret = "test-secret-key";
+    let payload = "test payload";
+    let timestamp = 1234567890u64;
+    
+    // Test signature generation
+    let signature = hmac_utils::generate_signature(secret, payload, timestamp)
+        .expect("Signature generation should succeed");
+    
+    assert!(!signature.is_empty(), "Signature should not be empty");
+    assert_eq!(signature.len(), 64, "HMAC-SHA256 signature should be 64 hex characters");
+    
+    // Test that same inputs produce same signature
+    let signature2 = hmac_utils::generate_signature(secret, payload, timestamp)
+        .expect("Second signature generation should succeed");
+    
+    assert_eq!(signature, signature2, "Same inputs should produce same signature");
+    
+    // Test that different inputs produce different signatures
+    let signature3 = hmac_utils::generate_signature(secret, "different payload", timestamp)
+        .expect("Third signature generation should succeed");
+    
+    assert_ne!(signature, signature3, "Different payloads should produce different signatures");
+}
+
+/// Unit tests for HMAC signature validation
+#[actix_web::test]
+async fn test_hmac_signature_validation() {
+    let secret = "test-secret-key";
+    let payload = "test payload";
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    
+    // Generate a valid signature
+    let signature = hmac_utils::generate_signature(secret, payload, timestamp)
+        .expect("Should generate signature");
+    
+    // Test valid signature
+    let result = hmac_utils::validate_signature(secret, payload, timestamp, &signature, 300)
+        .expect("Validation should not error");
+    assert!(result, "Valid signature should pass validation");
+    
+    // Test invalid signature
+    let invalid_signature = "0000000000000000000000000000000000000000000000000000000000000000";
+    let result = hmac_utils::validate_signature(secret, payload, timestamp, invalid_signature, 300)
+        .expect("Validation should not error");
+    assert!(!result, "Invalid signature should fail validation");
+    
+    // Test expired timestamp
+    let old_timestamp = timestamp - 400; // 400 seconds ago, beyond 300 second tolerance
+    let old_signature = hmac_utils::generate_signature(secret, payload, old_timestamp)
+        .expect("Should generate signature");
+    let result = hmac_utils::validate_signature(secret, payload, old_timestamp, &old_signature, 300)
+        .expect("Validation should not error");
+    assert!(!result, "Expired timestamp should fail validation");
+    
+    // Test future timestamp (within tolerance)
+    let future_timestamp = timestamp + 100; // 100 seconds in future, within 300 second tolerance
+    let future_signature = hmac_utils::generate_signature(secret, payload, future_timestamp)
+        .expect("Should generate signature");
+    let result = hmac_utils::validate_signature(secret, payload, future_timestamp, &future_signature, 300)
+        .expect("Validation should not error");
+    assert!(result, "Future timestamp within tolerance should pass validation");
+}
+
+/// Integration test for HMAC signature middleware when not required
+#[actix_web::test]
+async fn test_hmac_middleware_not_required() {
+    // Ensure HMAC is not required for this test
+    unsafe {
+        env::remove_var("HMAC_REQUIRE_SIGNATURE"); // Explicitly remove first
+        env::set_var("HMAC_REQUIRE_SIGNATURE", "false");
+    }
+    
+    // Create app AFTER setting environment variables
+    let app = test::init_service(create_base_app()).await;
+    
+    // Request without signature headers should succeed when HMAC not required
+    let req = test::TestRequest::get().uri("/api/health").to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    assert_eq!(resp.status(), StatusCode::OK, "Request should succeed when HMAC not required");
+    
+    // Clean up
+    unsafe {
+        env::remove_var("HMAC_REQUIRE_SIGNATURE");
+    }
+}
+
+/// Integration test for HMAC signature middleware when required but missing headers
+#[actix_web::test]
+async fn test_hmac_middleware_required_missing_headers() {
+    // Configure HMAC to be required
+    unsafe {
+        env::set_var("HMAC_REQUIRE_SIGNATURE", "true");
+        env::set_var("HMAC_SECRET", "test-secret-for-integration");
+    }
+    
+    // Create app AFTER setting environment variables
+    let app = test::init_service(create_base_app()).await;
+    
+    // Request without signature headers should fail when HMAC required
+    let req = test::TestRequest::get().uri("/api/health").to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED, "Request should fail when HMAC required but missing headers");
+    
+    let body = test::read_body(resp).await;
+    let body_str = std::str::from_utf8(&body).unwrap();
+    assert!(body_str.contains("Invalid or missing HMAC signature"), 
+            "Error message should mention invalid or missing HMAC signature, got: {}", body_str);
+    
+    // Clean up
+    unsafe {
+        env::remove_var("HMAC_REQUIRE_SIGNATURE");
+        env::remove_var("HMAC_SECRET");
+    }
+}
+
+/// Integration test for HMAC signature middleware with valid signature
+#[actix_web::test]
+async fn test_hmac_middleware_valid_signature() {
+    let secret = "test-secret-for-integration";
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    
+    // Configure HMAC to be required
+    unsafe {
+        env::set_var("HMAC_REQUIRE_SIGNATURE", "true");
+        env::set_var("HMAC_SECRET", secret);
+    }
+    
+    // Create app AFTER setting environment variables
+    let app = test::init_service(create_base_app()).await;
+    
+    // For GET requests, the body is typically empty
+    let payload = "";
+    let signature = hmac_utils::generate_signature(secret, payload, timestamp)
+        .expect("Should generate signature");
+    
+    // Request with valid signature headers should succeed
+    let req = test::TestRequest::get()
+        .uri("/api/health")
+        .insert_header(("X-Signature", signature.as_str()))
+        .insert_header(("X-Timestamp", timestamp.to_string()))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    assert_eq!(resp.status(), StatusCode::OK, "Request should succeed with valid signature");
+    
+    // Clean up
+    unsafe {
+        env::remove_var("HMAC_REQUIRE_SIGNATURE");
+        env::remove_var("HMAC_SECRET");
+    }
+}
+
+/// Integration test for HMAC signature middleware with invalid signature
+#[actix_web::test]
+async fn test_hmac_middleware_invalid_signature() {
+    let secret = "test-secret-for-integration";
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    
+    // Configure HMAC to be required
+    unsafe {
+        env::set_var("HMAC_REQUIRE_SIGNATURE", "true");
+        env::set_var("HMAC_SECRET", secret);
+    }
+    
+    // Create app AFTER setting environment variables
+    let app = test::init_service(create_base_app()).await;
+    
+    // Use invalid signature
+    let invalid_signature = "0000000000000000000000000000000000000000000000000000000000000000";
+    
+    // Request with invalid signature should fail
+    let req = test::TestRequest::get()
+        .uri("/api/health")
+        .insert_header(("X-Signature", invalid_signature))
+        .insert_header(("X-Timestamp", timestamp.to_string()))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED, "Request should fail with invalid signature");
+    
+    let body = test::read_body(resp).await;
+    let body_str = std::str::from_utf8(&body).unwrap();
+    assert!(body_str.contains("Invalid or missing HMAC signature"), 
+            "Error message should mention invalid or missing HMAC signature, got: {}", body_str);
+    
+    // Clean up
+    unsafe {
+        env::remove_var("HMAC_REQUIRE_SIGNATURE");
+        env::remove_var("HMAC_SECRET");
+    }
 }

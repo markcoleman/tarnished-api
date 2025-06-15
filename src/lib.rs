@@ -6,8 +6,10 @@ use std::{
     env, 
     collections::HashMap, 
     sync::{Arc, Mutex}, 
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 
 /// Configuration for rate limiting
 #[derive(Clone)]
@@ -41,6 +43,48 @@ impl RateLimitConfig {
         Self {
             requests_per_minute,
             period_seconds,
+        }
+    }
+}
+
+/// Configuration for HMAC signature validation
+#[derive(Clone)]
+pub struct HmacConfig {
+    pub secret: String,
+    pub timestamp_tolerance_seconds: u64,
+    pub require_signature: bool,
+}
+
+impl Default for HmacConfig {
+    fn default() -> Self {
+        Self {
+            secret: "default-secret-change-in-production".to_string(),
+            timestamp_tolerance_seconds: 300, // 5 minutes
+            require_signature: false, // Optional by default for backward compatibility
+        }
+    }
+}
+
+impl HmacConfig {
+    /// Load configuration from environment variables, falling back to defaults
+    pub fn from_env() -> Self {
+        let secret = env::var("HMAC_SECRET")
+            .unwrap_or_else(|_| "default-secret-change-in-production".to_string());
+        
+        let timestamp_tolerance_seconds = env::var("HMAC_TIMESTAMP_TOLERANCE")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(300);
+        
+        let require_signature = env::var("HMAC_REQUIRE_SIGNATURE")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(false);
+        
+        Self {
+            secret,
+            timestamp_tolerance_seconds,
+            require_signature,
         }
     }
 }
@@ -117,6 +161,137 @@ pub fn rate_limit_middleware(
     Ok(())
 }
 
+/// HMAC signature utility functions
+pub mod hmac_utils {
+    use super::*;
+    
+    type HmacSha256 = Hmac<Sha256>;
+    
+    /// Generate HMAC-SHA256 signature for the given payload and timestamp
+    pub fn generate_signature(secret: &str, payload: &str, timestamp: u64) -> Result<String, String> {
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+            .map_err(|e| format!("Invalid secret key: {}", e))?;
+        
+        let message = format!("{}.{}", timestamp, payload);
+        mac.update(message.as_bytes());
+        
+        let result = mac.finalize();
+        Ok(hex::encode(result.into_bytes()))
+    }
+    
+    /// Validate HMAC-SHA256 signature
+    pub fn validate_signature(
+        secret: &str, 
+        payload: &str, 
+        timestamp: u64, 
+        signature: &str,
+        tolerance_seconds: u64
+    ) -> Result<bool, String> {
+        // Check timestamp validity first
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| format!("System time error: {}", e))?
+            .as_secs();
+        
+        let time_diff = if current_time > timestamp {
+            current_time - timestamp
+        } else {
+            timestamp - current_time
+        };
+        
+        if time_diff > tolerance_seconds {
+            return Ok(false);
+        }
+        
+        // Generate expected signature
+        let expected_signature = generate_signature(secret, payload, timestamp)?;
+        
+        // Compare signatures using constant-time comparison
+        let signature_bytes = hex::decode(signature)
+            .map_err(|_| "Invalid signature format".to_string())?;
+        let expected_bytes = hex::decode(expected_signature)
+            .map_err(|_| "Invalid expected signature format".to_string())?;
+        
+        if signature_bytes.len() != expected_bytes.len() {
+            return Ok(false);
+        }
+        
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+            .map_err(|e| format!("Invalid secret key: {}", e))?;
+        
+        mac.update(format!("{}.{}", timestamp, payload).as_bytes());
+        
+        mac.verify_slice(&signature_bytes)
+            .map(|_| true)
+            .or(Ok(false))
+    }
+}
+
+/// HMAC signature middleware
+pub fn hmac_signature_middleware(
+    req: &HttpRequest,
+    body: &str,
+    config: &HmacConfig,
+) -> Result<(), HttpResponse> {
+    // If signature is not required, skip validation
+    if !config.require_signature {
+        return Ok(());
+    }
+    
+    // Extract signature and timestamp headers
+    let signature = req.headers()
+        .get("X-Signature")
+        .and_then(|h| h.to_str().ok())
+        .ok_or_else(|| {
+            HttpResponse::Unauthorized()
+                .json(serde_json::json!({
+                    "error": "Unauthorized",
+                    "message": "Missing X-Signature header"
+                }))
+        })?;
+    
+    let timestamp_str = req.headers()
+        .get("X-Timestamp")
+        .and_then(|h| h.to_str().ok())
+        .ok_or_else(|| {
+            HttpResponse::Unauthorized()
+                .json(serde_json::json!({
+                    "error": "Unauthorized", 
+                    "message": "Missing X-Timestamp header"
+                }))
+        })?;
+    
+    let timestamp: u64 = timestamp_str.parse()
+        .map_err(|_| {
+            HttpResponse::Unauthorized()
+                .json(serde_json::json!({
+                    "error": "Unauthorized",
+                    "message": "Invalid X-Timestamp format"
+                }))
+        })?;
+    
+    // Validate signature
+    match hmac_utils::validate_signature(
+        &config.secret,
+        body,
+        timestamp,
+        signature,
+        config.timestamp_tolerance_seconds
+    ) {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(HttpResponse::Unauthorized()
+            .json(serde_json::json!({
+                "error": "Unauthorized",
+                "message": "Invalid signature or timestamp"
+            }))),
+        Err(e) => Err(HttpResponse::InternalServerError()
+            .json(serde_json::json!({
+                "error": "Internal Server Error",
+                "message": format!("Signature validation error: {}", e)
+            })))
+    }
+}
+
 // Define a schema for the health response
 #[derive(Serialize, Deserialize, Apiv2Schema)]
 pub struct HealthResponse {
@@ -136,10 +311,21 @@ pub struct VersionResponse {
     description = "Returns the current health status of the API in JSON format.",
     tags("Health"),
     responses(
-        (status = 200, description = "Successful response", body = HealthResponse)
+        (status = 200, description = "Successful response", body = HealthResponse),
+        (status = 401, description = "Unauthorized - Invalid or missing HMAC signature")
     )
 )]
-pub async fn health() -> Result<web::Json<HealthResponse>, Error> {
+pub async fn health(req: HttpRequest) -> Result<web::Json<HealthResponse>, Error> {
+    // Check if HMAC config is available and validate signature
+    if let Some(hmac_config) = req.app_data::<web::Data<HmacConfig>>() {
+        // For GET requests, the body is typically empty
+        if let Err(_response) = hmac_signature_middleware(&req, "", hmac_config) {
+            return Err(actix_web::error::ErrorUnauthorized(
+                "Invalid or missing HMAC signature"
+            ));
+        }
+    }
+    
     let response = HealthResponse {
         status: "healthy".to_string(),
     };
@@ -152,10 +338,21 @@ pub async fn health() -> Result<web::Json<HealthResponse>, Error> {
     tags("Version"),
     responses(
         (status = 200, description = "Successful response", body = VersionResponse),
+        (status = 401, description = "Unauthorized - Invalid or missing HMAC signature"),
         (status = 429, description = "Too Many Requests")
     )
 )]
 pub async fn version(req: HttpRequest) -> Result<web::Json<VersionResponse>, Error> {
+    // Check if HMAC config is available and validate signature
+    if let Some(hmac_config) = req.app_data::<web::Data<HmacConfig>>() {
+        // For GET requests, the body is typically empty
+        if let Err(_response) = hmac_signature_middleware(&req, "", hmac_config) {
+            return Err(actix_web::error::ErrorUnauthorized(
+                "Invalid or missing HMAC signature"
+            ));
+        }
+    }
+    
     // Check if rate limiter is available in app data
     if let Some(limiter) = req.app_data::<web::Data<SimpleRateLimiter>>() {
         // Apply rate limiting to version endpoint
@@ -187,7 +384,7 @@ pub fn create_openapi_spec() -> DefaultApiRaw {
     }
 }
 
-/// Creates a basic app with shared configuration (health endpoint + OpenAPI + rate limiting)
+/// Creates a basic app with shared configuration (health endpoint + OpenAPI + rate limiting + HMAC)
 /// This can be used both for testing and as a base for the main application
 pub fn create_base_app() -> App<
     impl actix_web::dev::ServiceFactory<
@@ -200,11 +397,13 @@ pub fn create_base_app() -> App<
 > {
     let config = RateLimitConfig::from_env();
     let limiter = SimpleRateLimiter::new(config.clone());
+    let hmac_config = HmacConfig::from_env();
     
     App::new()
         .wrap_api_with_spec(create_openapi_spec())
         .app_data(web::Data::new(config))
         .app_data(web::Data::new(limiter))
+        .app_data(web::Data::new(hmac_config))
         .service(
             web::resource("/api/health")
                 .route(web::get().to(health))
