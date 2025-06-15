@@ -45,76 +45,7 @@ impl MetricsConfig {
     }
 }
 
-/// Application metrics collector
-#[derive(Clone)]
-pub struct AppMetrics {
-    pub registry: Registry,
-    pub http_requests_total: CounterVec,
-    pub http_request_duration_seconds: HistogramVec,
-    pub app_uptime_seconds: Gauge,
-    pub app_info: CounterVec,
-    pub start_time: Instant,
-}
 
-impl AppMetrics {
-    pub fn new() -> Result<Self, prometheus::Error> {
-        let registry = Registry::new();
-        
-        // HTTP request counter by method, status, and route
-        let http_requests_total = CounterVec::new(
-            Opts::new("http_requests_total", "Total number of HTTP requests"),
-            &["method", "status", "route"]
-        )?;
-        
-        // HTTP request duration histogram
-        let http_request_duration_seconds = HistogramVec::new(
-            HistogramOpts::new(
-                "http_request_duration_seconds",
-                "HTTP request duration in seconds"
-            ).buckets(vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]),
-            &["method", "route"]
-        )?;
-        
-        // Application uptime gauge
-        let app_uptime_seconds = Gauge::new(
-            "app_uptime_seconds", 
-            "Application uptime in seconds"
-        )?;
-        
-        // Application info counter
-        let app_info = CounterVec::new(
-            Opts::new("app_info", "Application information"),
-            &["version", "commit", "build_time"]
-        )?;
-        
-        // Register all metrics
-        registry.register(Box::new(http_requests_total.clone()))?;
-        registry.register(Box::new(http_request_duration_seconds.clone()))?;
-        registry.register(Box::new(app_uptime_seconds.clone()))?;
-        registry.register(Box::new(app_info.clone()))?;
-        
-        let start_time = Instant::now();
-        
-        // Set application info
-        app_info.with_label_values(&[
-            env!("CARGO_PKG_VERSION"),
-            env!("VERGEN_GIT_SHA"),
-            env!("VERGEN_BUILD_TIMESTAMP")
-        ]).inc();
-        
-        Ok(Self {
-            registry,
-            http_requests_total,
-            http_request_duration_seconds,
-            app_uptime_seconds,
-            app_info,
-            start_time,
-        })
-    }
-    
-    
-
-}
 
 /// Metrics middleware function-based approach
 pub fn metrics_middleware(
@@ -141,32 +72,6 @@ fn extract_route_pattern(req: &HttpRequest) -> String {
         path.to_string()
     } else {
         "/unknown".to_string()
-    }
-}
-
-/// Metrics configuration
-#[derive(Clone)]
-pub struct MetricsConfig {
-    pub enabled: bool,
-}
-
-impl Default for MetricsConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-        }
-    }
-}
-
-impl MetricsConfig {
-    /// Load configuration from environment variables, falling back to defaults
-    pub fn from_env() -> Self {
-        let enabled = env::var("METRICS_ENABLED")
-            .unwrap_or_else(|_| "true".to_string())
-            .parse()
-            .unwrap_or(true);
-        
-        Self { enabled }
     }
 }
 
@@ -584,6 +489,7 @@ pub fn create_base_app() -> App<
     let config = RateLimitConfig::from_env();
     let limiter = SimpleRateLimiter::new(config.clone());
     let metrics_config = MetricsConfig::from_env();
+    let metrics = AppMetrics::new().expect("Failed to create metrics");
 
     
     App::new()

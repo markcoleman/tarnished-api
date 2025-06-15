@@ -188,7 +188,6 @@ async fn test_rate_limiter_unit() {
     assert!(limiter.check_rate_limit("different_ip"), "Different IP should not be rate limited");
 }
 
-<<<<<<< HEAD
 /// Test that Request ID middleware adds X-Request-ID header to responses
 #[actix_web::test]
 async fn test_request_id_header_added() {
@@ -250,8 +249,8 @@ async fn test_request_id_on_version_endpoint() {
     
     let request_id = request_id_header.unwrap().to_str().unwrap();
     assert!(!request_id.is_empty(), "Request ID should not be empty");
-=======
->>>>>>> 4549c9fd422199c90de8fe7c4b3dc8be2f3ec524
+}
+
 /// Integration test for the metrics endpoint
 /// 
 /// This test verifies that:
