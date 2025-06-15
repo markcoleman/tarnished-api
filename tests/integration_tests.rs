@@ -196,9 +196,7 @@ async fn test_rate_limiter_unit() {
 #[actix_web::test]
 async fn test_security_headers_health_endpoint() {
     // Ensure CSP is enabled for this test by explicitly setting the env var
-    unsafe {
-        env::set_var("SECURITY_CSP_ENABLED", "true");
-    }
+    env::set_var("SECURITY_CSP_ENABLED", "true");
     
     // Create a test service with the same configuration as the main app
     let app = test::init_service(create_base_app()).await;
