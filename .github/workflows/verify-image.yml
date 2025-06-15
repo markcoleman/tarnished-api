@@ -1,0 +1,61 @@
+name: Verify Signed Image
+
+"on":
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Image to verify (e.g., ghcr.io/markcoleman/tarnished-api:latest)'
+        required: true
+        default: 'ghcr.io/markcoleman/tarnished-api:latest'
+
+permissions:
+  contents: read
+  id-token: write  # Required for keyless verification with GitHub OIDC
+
+jobs:
+  verify:
+    name: Verify Image Signature
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Install Cosign for verification
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.0
+        with:
+          cosign-release: 'v2.4.1'
+
+      # Log in to GitHub Container Registry for private repositories
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Verify the image signature
+      - name: Verify Image Signature
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          echo "🔍 Verifying image signature for: ${{ github.event.inputs.image }}"
+          
+          # Get the image digest
+          IMAGE_DIGEST=$(docker buildx imagetools inspect ${{ github.event.inputs.image }} --format '{{ .Manifest.Digest }}')
+          IMAGE_URI="${{ github.event.inputs.image }}@${IMAGE_DIGEST}"
+          
+          echo "📦 Full Image URI: ${IMAGE_URI}"
+          
+          # Verify the signature
+          cosign verify \
+            --certificate-identity-regexp="https://github.com/markcoleman/tarnished-api/.*" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+            "${IMAGE_URI}"
+          
+          echo "✅ Image signature verification successful!"
+          echo "🛡️  This image is signed and verified - safe for deployment"
+
+      - name: Deployment Check Passed
+        run: |
+          echo "::notice title=Signature Verified::Image ${{ github.event.inputs.image }} has a valid signature and is ready for deployment"
