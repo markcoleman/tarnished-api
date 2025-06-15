@@ -9,6 +9,14 @@ Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix
 - **Health Check Endpoint:**  
   The `/api/health` endpoint returns a JSON object indicating the current status of the API (e.g., `{ "status": "healthy" }`). The response is defined using a `HealthResponse` struct and documented via Paperclip annotations.
 
+- **Security Headers:**  
+  All HTTP responses include modern security headers to protect against common vulnerabilities:
+  - `X-Content-Type-Options: nosniff` - Prevents MIME type sniffing
+  - `X-Frame-Options: DENY` - Prevents clickjacking attacks
+  - `X-XSS-Protection: 1; mode=block` - Enables browser XSS protection
+  - `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` - Prevents various injection attacks
+  - `Referrer-Policy: no-referrer` - Controls referrer information
+
 - **OpenAPI Specification:**  
   The API automatically generates and serves an OpenAPI (Swagger) spec at `/api/spec/v2`. This helps you quickly integrate with other services and document your API.
 
@@ -20,3 +28,14 @@ Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix
 
 - **Dependabot:**  
   Dependabot is configured to monitor Cargo dependencies and devcontainer configurations, keeping the project up-to-date with minimal effort.
+
+## Configuration
+
+The API can be configured using environment variables:
+
+### Security Headers
+- `SECURITY_CSP_ENABLED` (default: `true`) - Set to `false` to disable Content-Security-Policy header for development ease
+
+### Rate Limiting  
+- `RATE_LIMIT_RPM` (default: `100`) - Number of requests allowed per minute
+- `RATE_LIMIT_PERIOD` (default: `60`) - Time window in seconds for rate limiting
