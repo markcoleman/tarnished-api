@@ -112,25 +112,8 @@ impl AppMetrics {
         })
     }
     
-    pub fn record_request(&self, method: &str, route: &str, status: u16, duration: Duration) {
-        if route == "/api/metrics" {
-            // Don't record metrics for the metrics endpoint itself to avoid noise
-            return;
-        }
-        
-        self.http_requests_total
-            .with_label_values(&[method, &status.to_string(), route])
-            .inc();
-            
-        self.http_request_duration_seconds
-            .with_label_values(&[method, route])
-            .observe(duration.as_secs_f64());
-    }
     
-    pub fn update_uptime(&self) {
-        let uptime = self.start_time.elapsed().as_secs_f64();
-        self.app_uptime_seconds.set(uptime);
-    }
+
 }
 
 /// Metrics middleware function-based approach
@@ -272,34 +255,6 @@ impl AppMetrics {
     pub fn update_uptime(&self) {
         let uptime = self.start_time.elapsed().as_secs_f64();
         self.app_uptime_seconds.set(uptime);
-    }
-}
-
-/// Metrics middleware function-based approach
-pub fn metrics_middleware(
-    req: &HttpRequest,
-    metrics: &AppMetrics,
-    start_time: Instant,
-    status: u16,
-) {
-    let duration = start_time.elapsed();
-    let method = req.method().as_str();
-    let route = extract_route_pattern(req);
-    
-    metrics.record_request(method, &route, status, duration);
-    metrics.update_uptime();
-}
-
-/// Extract route pattern from request, handling common patterns
-fn extract_route_pattern(req: &HttpRequest) -> String {
-    let path = req.path();
-    
-    // Return the actual path for our API routes since they're well-defined
-    // This could be enhanced to group similar routes if needed
-    if path.starts_with('/') {
-        path.to_string()
-    } else {
-        "/unknown".to_string()
     }
 }
 
@@ -629,7 +584,7 @@ pub fn create_base_app() -> App<
     let config = RateLimitConfig::from_env();
     let limiter = SimpleRateLimiter::new(config.clone());
     let metrics_config = MetricsConfig::from_env();
-    let metrics = AppMetrics::new().expect("Failed to create metrics");
+
     
     App::new()
         .wrap(RequestIdMiddleware)
