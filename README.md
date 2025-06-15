@@ -20,3 +20,6 @@ Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix
 
 - **Dependabot:**  
   Dependabot is configured to monitor Cargo dependencies and devcontainer configurations, keeping the project up-to-date with minimal effort.
+
+- **Signed Container Images:**  
+  All Docker images are cryptographically signed using [Sigstore Cosign](https://docs.sigstore.dev/cosign/overview/) with keyless signing via GitHub OIDC. Signatures are stored in the OCI registry alongside the images, ensuring only authenticated and traceable artifacts are deployed to production.
