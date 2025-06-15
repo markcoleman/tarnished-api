@@ -5,7 +5,7 @@ use paperclip::actix::{
     // Import the paperclip web module
     web::{self},
 };
-use tarnished_api::{create_openapi_spec, health, version, RateLimitConfig, SimpleRateLimiter};
+use tarnished_api::{create_openapi_spec, health, version, login, validate_token, RateLimitConfig, SimpleRateLimiter, SuspiciousActivityTracker};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -74,20 +74,43 @@ async fn index() -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize logger (make sure to run with RUST_LOG=info, for example)
-    env_logger::init();
+    // Initialize structured logging
+    let env_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "info,auth_audit=info".to_string());
+    
+    // Check if we should use JSON logging (for production/observability)
+    let use_json_logging = std::env::var("LOG_FORMAT")
+        .map(|v| v.to_lowercase() == "json")
+        .unwrap_or(false);
+
+    if use_json_logging {
+        tracing_subscriber::fmt()
+            .json()
+            .with_env_filter(env_filter)
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(env_filter)
+            .init();
+    }
 
     // Print a startup message for convenience.
     println!("Server running at http://127.0.0.1:8080");
+    println!("Authentication endpoints:");
+    println!("  POST /auth/login - User login");
+    println!("  POST /auth/validate - Token validation");
+    println!("Set LOG_FORMAT=json for structured JSON logging");
+    println!("Set RUST_LOG=debug,auth_audit=info for verbose logging");
 
     HttpServer::new(|| {
         let config = RateLimitConfig::from_env();
         let limiter = SimpleRateLimiter::new(config.clone());
+        let activity_tracker = SuspiciousActivityTracker::new();
         
         App::new()
             .wrap_api_with_spec(create_openapi_spec())
             .app_data(web::Data::new(config))
             .app_data(web::Data::new(limiter))
+            .app_data(web::Data::new(activity_tracker))
             .service(
                 web::resource("/")
                     .route(web::get().to(index))
@@ -99,6 +122,14 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::resource("/api/version")
                     .route(web::get().to(version))
+            )
+            .service(
+                web::resource("/auth/login")
+                    .route(web::post().to(login))
+            )
+            .service(
+                web::resource("/auth/validate")
+                    .route(web::post().to(validate_token))
             )
             .with_json_spec_at("/api/spec/v2")
             .build()
