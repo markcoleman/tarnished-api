@@ -5,7 +5,7 @@ use paperclip::actix::{
     // Import the paperclip web module
     web::{self},
 };
-use tarnished_api::{create_openapi_spec, health, version, RateLimitConfig, SimpleRateLimiter};
+use tarnished_api::{create_openapi_spec, health, version, RateLimitConfig, SimpleRateLimiter, RequestIdMiddleware};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -85,6 +85,7 @@ async fn main() -> std::io::Result<()> {
         let limiter = SimpleRateLimiter::new(config.clone());
         
         App::new()
+            .wrap(RequestIdMiddleware)
             .wrap_api_with_spec(create_openapi_spec())
             .app_data(web::Data::new(config))
             .app_data(web::Data::new(limiter))

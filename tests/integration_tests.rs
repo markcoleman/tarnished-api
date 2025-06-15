@@ -186,3 +186,66 @@ async fn test_rate_limiter_unit() {
     // Different IP should work fine
     assert!(limiter.check_rate_limit("different_ip"), "Different IP should not be rate limited");
 }
+
+/// Test that Request ID middleware adds X-Request-ID header to responses
+#[actix_web::test]
+async fn test_request_id_header_added() {
+    // Create a test service with Request ID middleware
+    let app = test::init_service(create_base_app()).await;
+    
+    // Test health endpoint
+    let req = test::TestRequest::get().uri("/api/health").to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    // Verify response has X-Request-ID header
+    let request_id_header = resp.headers().get("x-request-id");
+    assert!(request_id_header.is_some(), "Response should contain X-Request-ID header");
+    
+    let request_id = request_id_header.unwrap().to_str().unwrap();
+    assert!(!request_id.is_empty(), "Request ID should not be empty");
+    
+    // Verify it looks like a UUID (basic format check)
+    assert_eq!(request_id.len(), 36, "Request ID should be 36 characters long (UUID format)");
+    assert_eq!(request_id.chars().filter(|&c| c == '-').count(), 4, "Request ID should have 4 hyphens (UUID format)");
+}
+
+/// Test that existing Request ID is preserved when passed in X-Request-ID header
+#[actix_web::test]
+async fn test_request_id_header_preserved() {
+    // Create a test service with Request ID middleware
+    let app = test::init_service(create_base_app()).await;
+    
+    let existing_request_id = "custom-request-id-12345";
+    
+    // Test with custom X-Request-ID header
+    let req = test::TestRequest::get()
+        .uri("/api/health")
+        .insert_header(("X-Request-ID", existing_request_id))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    // Verify response preserves the original Request ID
+    let request_id_header = resp.headers().get("x-request-id");
+    assert!(request_id_header.is_some(), "Response should contain X-Request-ID header");
+    
+    let returned_request_id = request_id_header.unwrap().to_str().unwrap();
+    assert_eq!(returned_request_id, existing_request_id, "Response should preserve the original Request ID");
+}
+
+/// Test that Request ID middleware works on version endpoint
+#[actix_web::test]
+async fn test_request_id_on_version_endpoint() {
+    // Create a test service with Request ID middleware
+    let app = test::init_service(create_base_app()).await;
+    
+    // Test version endpoint
+    let req = test::TestRequest::get().uri("/api/version").to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    // Verify response has X-Request-ID header
+    let request_id_header = resp.headers().get("x-request-id");
+    assert!(request_id_header.is_some(), "Version endpoint response should contain X-Request-ID header");
+    
+    let request_id = request_id_header.unwrap().to_str().unwrap();
+    assert!(!request_id.is_empty(), "Request ID should not be empty");
+}

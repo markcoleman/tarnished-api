@@ -1,4 +1,10 @@
-use actix_web::{App, Error, HttpResponse, HttpRequest, Result};
+use actix_web::{
+    App, Error, HttpResponse, HttpRequest, Result,
+    dev::{ServiceRequest, ServiceResponse, forward_ready},
+    http::header::{HeaderName, HeaderValue},
+    HttpMessage,
+};
+use actix_web::dev::{Service, Transform};
 use paperclip::actix::{OpenApiExt, api_v2_operation, Apiv2Schema, web};
 use paperclip::v2::models::{DefaultApiRaw, Info};
 use serde::{Serialize, Deserialize};
@@ -7,7 +13,10 @@ use std::{
     collections::HashMap, 
     sync::{Arc, Mutex}, 
     time::{Duration, Instant},
+    future::{Ready, ready},
+    pin::Pin,
 };
+use uuid::Uuid;
 
 /// Configuration for rate limiting
 #[derive(Clone)]
@@ -117,6 +126,70 @@ pub fn rate_limit_middleware(
     Ok(())
 }
 
+/// Request ID middleware to add unique request IDs to all requests
+pub struct RequestIdMiddleware;
+
+impl<S, B> Transform<S, ServiceRequest> for RequestIdMiddleware
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = Error;
+    type InitError = ();
+    type Transform = RequestIdService<S>;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(RequestIdService { service }))
+    }
+}
+
+pub struct RequestIdService<S> {
+    service: S,
+}
+
+impl<S, B> Service<ServiceRequest> for RequestIdService<S>
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = Error;
+    type Future = Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
+
+    forward_ready!(service);
+
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        // Extract or generate Request ID
+        let request_id = req
+            .headers()
+            .get("X-Request-ID")
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+        // Store Request ID in request extensions for potential use in handlers
+        req.extensions_mut().insert(request_id.clone());
+
+        let fut = self.service.call(req);
+
+        Box::pin(async move {
+            let mut res = fut.await?;
+            
+            // Add Request ID to response headers
+            res.headers_mut().insert(
+                HeaderName::from_static("x-request-id"),
+                HeaderValue::from_str(&request_id).unwrap_or_else(|_| HeaderValue::from_static("invalid"))
+            );
+            
+            Ok(res)
+        })
+    }
+}
+
 // Define a schema for the health response
 #[derive(Serialize, Deserialize, Apiv2Schema)]
 pub struct HealthResponse {
@@ -202,6 +275,7 @@ pub fn create_base_app() -> App<
     let limiter = SimpleRateLimiter::new(config.clone());
     
     App::new()
+        .wrap(RequestIdMiddleware)
         .wrap_api_with_spec(create_openapi_spec())
         .app_data(web::Data::new(config))
         .app_data(web::Data::new(limiter))
