@@ -1,6 +1,6 @@
 name: Verify Signed Image
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       image:
