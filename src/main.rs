@@ -1,4 +1,4 @@
-use actix_web::{App, HttpResponse, HttpServer};
+use actix_web::{App, HttpResponse, HttpServer, HttpRequest};
 use paperclip::actix::{
     // extension trait for actix_web::App and proc-macro attributes
     OpenApiExt, api_v2_operation,
@@ -6,6 +6,7 @@ use paperclip::actix::{
     web::{self},
 };
 use tarnished_api::{create_openapi_spec, health, version, RateLimitConfig, SimpleRateLimiter, SecurityHeaders, SecurityHeadersConfig};
+use tarnished_api::{create_openapi_spec, health, version, get_metrics, RateLimitConfig, SimpleRateLimiter, MetricsConfig, AppMetrics, RequestIdMiddleware};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -66,10 +67,19 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
         (status = 200, description = "Successful response")
     )
 )]
-async fn index() -> HttpResponse {
-    HttpResponse::Ok()
+async fn index(req: HttpRequest) -> HttpResponse {
+    let start_time = std::time::Instant::now();
+    
+    let response = HttpResponse::Ok()
         .content_type("text/html")
-        .body(INDEX_HTML)
+        .body(INDEX_HTML);
+    
+    // Record metrics if available
+    if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {
+        metrics.record_request("GET", "/", 200, start_time.elapsed());
+    }
+    
+    response
 }
 
 #[actix_web::main]
@@ -87,9 +97,16 @@ async fn main() -> std::io::Result<()> {
         
         App::new()
             .wrap(SecurityHeaders::new(security_config))
+        let metrics_config = MetricsConfig::from_env();
+        let metrics = AppMetrics::new().expect("Failed to create metrics");
+        
+        App::new()
+            .wrap(RequestIdMiddleware)
             .wrap_api_with_spec(create_openapi_spec())
             .app_data(web::Data::new(config))
             .app_data(web::Data::new(limiter))
+            .app_data(web::Data::new(metrics_config))
+            .app_data(web::Data::new(metrics))
             .service(
                 web::resource("/")
                     .route(web::get().to(index))
@@ -101,6 +118,10 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::resource("/api/version")
                     .route(web::get().to(version))
+            )
+            .service(
+                web::resource("/api/metrics")
+                    .route(web::get().to(get_metrics))
             )
             .with_json_spec_at("/api/spec/v2")
             .build()
