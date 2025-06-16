@@ -1,22 +1,23 @@
 use actix_web::{
-    App, Error, HttpResponse, HttpRequest, Result,
-    dev::{ServiceRequest, ServiceResponse, forward_ready, Service, Transform},
+    App, Error, HttpMessage, HttpRequest, HttpResponse, Result,
+    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
     http::header::{HeaderName, HeaderValue},
-    HttpMessage,
-};
-use paperclip::actix::{OpenApiExt, api_v2_operation, Apiv2Schema, web};
-use paperclip::v2::models::{DefaultApiRaw, Info};
-use serde::{Serialize, Deserialize};
-use prometheus::{CounterVec, HistogramVec, Gauge, Registry, Encoder, TextEncoder, Opts, HistogramOpts};
-use std::{
-    env, 
-    collections::HashMap, 
-    sync::{Arc, Mutex}, 
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use hmac::{Hmac, Mac};
+use paperclip::actix::{Apiv2Schema, OpenApiExt, api_v2_operation, web};
+use paperclip::v2::models::{DefaultApiRaw, Info};
+use prometheus::{
+    CounterVec, Encoder, Gauge, HistogramOpts, HistogramVec, Opts, Registry, TextEncoder,
+};
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-    time::{Duration, Instant},
+use std::{
+    collections::HashMap,
+    env,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+use std::{
     future::{Ready, ready},
     pin::Pin,
 };
@@ -30,14 +31,12 @@ pub struct MetricsConfig {
 
 impl Default for MetricsConfig {
     fn default() -> Self {
-        Self {
-            enabled: true,
-        }
+        Self { enabled: true }
     }
 }
 
-use tracing::{info, warn, error};
 use chrono::{DateTime, Utc};
+use tracing::{error, info, warn};
 
 /// Audit event types for authentication logging
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -167,12 +166,10 @@ impl MetricsConfig {
             .unwrap_or_else(|_| "true".to_string())
             .parse()
             .unwrap_or(true);
-        
+
         Self { enabled }
     }
 }
-
-
 
 /// Metrics middleware function-based approach
 pub fn metrics_middleware(
@@ -184,7 +181,7 @@ pub fn metrics_middleware(
     let duration = start_time.elapsed();
     let method = req.method().as_str();
     let route = extract_route_pattern(req);
-    
+
     metrics.record_request(method, &route, status, duration);
     metrics.update_uptime();
 }
@@ -192,7 +189,7 @@ pub fn metrics_middleware(
 /// Extract route pattern from request, handling common patterns
 fn extract_route_pattern(req: &HttpRequest) -> String {
     let path = req.path();
-    
+
     // Return the actual path for our API routes since they're well-defined
     // This could be enhanced to group similar routes if needed
     if path.starts_with('/') {
@@ -216,49 +213,51 @@ pub struct AppMetrics {
 impl AppMetrics {
     pub fn new() -> Result<Self, prometheus::Error> {
         let registry = Registry::new();
-        
+
         // HTTP request counter by method, status, and route
         let http_requests_total = CounterVec::new(
             Opts::new("http_requests_total", "Total number of HTTP requests"),
-            &["method", "status", "route"]
+            &["method", "status", "route"],
         )?;
-        
+
         // HTTP request duration histogram
         let http_request_duration_seconds = HistogramVec::new(
             HistogramOpts::new(
                 "http_request_duration_seconds",
-                "HTTP request duration in seconds"
-            ).buckets(vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]),
-            &["method", "route"]
+                "HTTP request duration in seconds",
+            )
+            .buckets(vec![
+                0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+            ]),
+            &["method", "route"],
         )?;
-        
+
         // Application uptime gauge
-        let app_uptime_seconds = Gauge::new(
-            "app_uptime_seconds", 
-            "Application uptime in seconds"
-        )?;
-        
+        let app_uptime_seconds = Gauge::new("app_uptime_seconds", "Application uptime in seconds")?;
+
         // Application info counter
         let app_info = CounterVec::new(
             Opts::new("app_info", "Application information"),
-            &["version", "commit", "build_time"]
+            &["version", "commit", "build_time"],
         )?;
-        
+
         // Register all metrics
         registry.register(Box::new(http_requests_total.clone()))?;
         registry.register(Box::new(http_request_duration_seconds.clone()))?;
         registry.register(Box::new(app_uptime_seconds.clone()))?;
         registry.register(Box::new(app_info.clone()))?;
-        
+
         let start_time = Instant::now();
-        
+
         // Set application info
-        app_info.with_label_values(&[
-            env!("CARGO_PKG_VERSION"),
-            env!("VERGEN_GIT_SHA"),
-            env!("VERGEN_BUILD_TIMESTAMP")
-        ]).inc();
-        
+        app_info
+            .with_label_values(&[
+                env!("CARGO_PKG_VERSION"),
+                env!("VERGEN_GIT_SHA"),
+                env!("VERGEN_BUILD_TIMESTAMP"),
+            ])
+            .inc();
+
         Ok(Self {
             registry,
             http_requests_total,
@@ -268,22 +267,22 @@ impl AppMetrics {
             start_time,
         })
     }
-    
+
     pub fn record_request(&self, method: &str, route: &str, status: u16, duration: Duration) {
         if route == "/api/metrics" {
             // Don't record metrics for the metrics endpoint itself to avoid noise
             return;
         }
-        
+
         self.http_requests_total
             .with_label_values(&[method, &status.to_string(), route])
             .inc();
-            
+
         self.http_request_duration_seconds
             .with_label_values(&[method, route])
             .observe(duration.as_secs_f64());
     }
-    
+
     pub fn update_uptime(&self) {
         let uptime = self.start_time.elapsed().as_secs_f64();
         self.app_uptime_seconds.set(uptime);
@@ -374,7 +373,7 @@ pub async fn login(
 
     // Simple mock authentication - in real implementation, this would check against a database
     let success = payload.username == "admin" && payload.password == "password123";
-    
+
     if success {
         let token = format!("token_{}", Uuid::new_v4());
         let response = LoginResponse {
@@ -415,7 +414,9 @@ pub async fn login(
         .with_user_agent(user_agent)
         .log();
 
-        Err(actix_web::error::ErrorUnauthorized(serde_json::to_string(&response).unwrap()))
+        Err(actix_web::error::ErrorUnauthorized(
+            serde_json::to_string(&response).unwrap(),
+        ))
     }
 }
 
@@ -439,7 +440,7 @@ pub async fn validate_token(
 
     // Simple mock token validation - in real implementation, this would verify JWT or check database
     let valid = payload.token.starts_with("token_");
-    
+
     if valid {
         let response = TokenValidationResponse {
             valid: true,
@@ -502,7 +503,7 @@ impl SuspiciousActivityTracker {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(5);
-        
+
         let window_seconds = env::var("AUTH_FAILURE_WINDOW")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -519,7 +520,7 @@ impl SuspiciousActivityTracker {
     pub fn record_failure(&self, ip: &str) -> bool {
         let mut attempts = self.failed_attempts.lock().unwrap();
         let now = Instant::now();
-        
+
         // Clean up old entries
         attempts.retain(|_, (_, timestamp)| {
             now.duration_since(*timestamp) < Duration::from_secs(self.window_seconds)
@@ -579,12 +580,12 @@ impl RateLimitConfig {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(100);
-        
+
         let period_seconds = env::var("RATE_LIMIT_PERIOD")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(60);
-        
+
         Self {
             requests_per_minute,
             period_seconds,
@@ -605,7 +606,7 @@ impl Default for HmacConfig {
         Self {
             secret: "default-secret-change-in-production".to_string(),
             timestamp_tolerance_seconds: 300, // 5 minutes
-            require_signature: false, // Optional by default for backward compatibility
+            require_signature: false,         // Optional by default for backward compatibility
         }
     }
 }
@@ -615,17 +616,17 @@ impl HmacConfig {
     pub fn from_env() -> Self {
         let secret = env::var("HMAC_SECRET")
             .unwrap_or_else(|_| "default-secret-change-in-production".to_string());
-        
+
         let timestamp_tolerance_seconds = env::var("HMAC_TIMESTAMP_TOLERANCE")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(300);
-        
+
         let require_signature = env::var("HMAC_REQUIRE_SIGNATURE")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(false);
-        
+
         Self {
             secret,
             timestamp_tolerance_seconds,
@@ -652,7 +653,7 @@ impl SimpleRateLimiter {
     pub fn check_rate_limit(&self, key: &str) -> bool {
         let mut storage = self.storage.lock().unwrap();
         let now = Instant::now();
-        
+
         // Clean up expired entries
         storage.retain(|_, (_, timestamp)| {
             now.duration_since(*timestamp) < Duration::from_secs(self.config.period_seconds)
@@ -660,7 +661,8 @@ impl SimpleRateLimiter {
 
         match storage.get_mut(key) {
             Some((count, timestamp)) => {
-                if now.duration_since(*timestamp) < Duration::from_secs(self.config.period_seconds) {
+                if now.duration_since(*timestamp) < Duration::from_secs(self.config.period_seconds)
+                {
                     if *count >= self.config.requests_per_minute {
                         false // Rate limit exceeded
                     } else {
@@ -696,11 +698,10 @@ pub fn rate_limit_middleware(
 
     if !limiter.check_rate_limit(&ip) {
         // Rate limit exceeded, return 429
-        return Err(HttpResponse::TooManyRequests()
-            .json(serde_json::json!({
-                "error": "Too Many Requests",
-                "message": "Rate limit exceeded. Please try again later."
-            })));
+        return Err(HttpResponse::TooManyRequests().json(serde_json::json!({
+            "error": "Too Many Requests",
+            "message": "Rate limit exceeded. Please try again later."
+        })));
     }
 
     Ok(())
@@ -709,63 +710,67 @@ pub fn rate_limit_middleware(
 /// HMAC signature utility functions
 pub mod hmac_utils {
     use super::*;
-    
+
     type HmacSha256 = Hmac<Sha256>;
-    
+
     /// Generate HMAC-SHA256 signature for the given payload and timestamp
-    pub fn generate_signature(secret: &str, payload: &str, timestamp: u64) -> Result<String, String> {
+    pub fn generate_signature(
+        secret: &str,
+        payload: &str,
+        timestamp: u64,
+    ) -> Result<String, String> {
         let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
             .map_err(|e| format!("Invalid secret key: {}", e))?;
-        
+
         let message = format!("{}.{}", timestamp, payload);
         mac.update(message.as_bytes());
-        
+
         let result = mac.finalize();
         Ok(hex::encode(result.into_bytes()))
     }
-    
+
     /// Validate HMAC-SHA256 signature
     pub fn validate_signature(
-        secret: &str, 
-        payload: &str, 
-        timestamp: u64, 
+        secret: &str,
+        payload: &str,
+        timestamp: u64,
         signature: &str,
-        tolerance_seconds: u64
+        tolerance_seconds: u64,
     ) -> Result<bool, String> {
         // Check timestamp validity first
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|e| format!("System time error: {}", e))?
             .as_secs();
-        
+
         let time_diff = if current_time > timestamp {
             current_time - timestamp
         } else {
             timestamp - current_time
         };
-        
+
         if time_diff > tolerance_seconds {
             return Ok(false);
         }
-        
+
         // Generate expected signature
         let expected_signature = generate_signature(secret, payload, timestamp)?;
-        
+
         // Compare signatures using constant-time comparison
-        let signature_bytes = hex::decode(signature)
-            .map_err(|_| "Invalid signature format".to_string())?;
+        let signature_bytes =
+            hex::decode(signature).map_err(|_| "Invalid signature format".to_string())?;
         let expected_bytes = hex::decode(expected_signature)
             .map_err(|_| "Invalid expected signature format".to_string())?;
-        
+
         if signature_bytes.len() != expected_bytes.len() {
             return Ok(false);
         }
-        
+
         let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
             .map_err(|e| format!("Invalid secret key: {}", e))?;
-        
+
         mac.update(format!("{}.{}", timestamp, payload).as_bytes());
-        
+
         mac.verify_slice(&signature_bytes)
             .map(|_| true)
             .or(Ok(false))
@@ -782,58 +787,54 @@ pub fn hmac_signature_middleware(
     if !config.require_signature {
         return Ok(());
     }
-    
+
     // Extract signature and timestamp headers
-    let signature = req.headers()
+    let signature = req
+        .headers()
         .get("X-Signature")
         .and_then(|h| h.to_str().ok())
         .ok_or_else(|| {
-            HttpResponse::Unauthorized()
-                .json(serde_json::json!({
-                    "error": "Unauthorized",
-                    "message": "Missing X-Signature header"
-                }))
+            HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Unauthorized",
+                "message": "Missing X-Signature header"
+            }))
         })?;
-    
-    let timestamp_str = req.headers()
+
+    let timestamp_str = req
+        .headers()
         .get("X-Timestamp")
         .and_then(|h| h.to_str().ok())
         .ok_or_else(|| {
-            HttpResponse::Unauthorized()
-                .json(serde_json::json!({
-                    "error": "Unauthorized", 
-                    "message": "Missing X-Timestamp header"
-                }))
+            HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": "Unauthorized",
+                "message": "Missing X-Timestamp header"
+            }))
         })?;
-    
-    let timestamp: u64 = timestamp_str.parse()
-        .map_err(|_| {
-            HttpResponse::Unauthorized()
-                .json(serde_json::json!({
-                    "error": "Unauthorized",
-                    "message": "Invalid X-Timestamp format"
-                }))
-        })?;
-    
+
+    let timestamp: u64 = timestamp_str.parse().map_err(|_| {
+        HttpResponse::Unauthorized().json(serde_json::json!({
+            "error": "Unauthorized",
+            "message": "Invalid X-Timestamp format"
+        }))
+    })?;
+
     // Validate signature
     match hmac_utils::validate_signature(
         &config.secret,
         body,
         timestamp,
         signature,
-        config.timestamp_tolerance_seconds
+        config.timestamp_tolerance_seconds,
     ) {
         Ok(true) => Ok(()),
-        Ok(false) => Err(HttpResponse::Unauthorized()
-            .json(serde_json::json!({
-                "error": "Unauthorized",
-                "message": "Invalid signature or timestamp"
-            }))),
-        Err(e) => Err(HttpResponse::InternalServerError()
-            .json(serde_json::json!({
-                "error": "Internal Server Error",
-                "message": format!("Signature validation error: {}", e)
-            })))
+        Ok(false) => Err(HttpResponse::Unauthorized().json(serde_json::json!({
+            "error": "Unauthorized",
+            "message": "Invalid signature or timestamp"
+        }))),
+        Err(e) => Err(HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": "Internal Server Error",
+            "message": format!("Signature validation error: {}", e)
+        }))),
     }
 }
 
@@ -846,27 +847,29 @@ pub fn add_response_signature(
     if config.secret.is_empty() {
         return Err("HMAC secret is empty".to_string());
     }
-    
+
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| format!("System time error: {}", e))?
         .as_secs();
-    
+
     let signature = hmac_utils::generate_signature(&config.secret, body, timestamp)?;
-    
+
     response.headers_mut().insert(
         actix_web::http::header::HeaderName::from_static("x-signature"),
         actix_web::http::header::HeaderValue::from_str(&signature)
-            .map_err(|e| format!("Invalid signature format: {}", e))?
+            .map_err(|e| format!("Invalid signature format: {}", e))?,
     );
-    
+
     response.headers_mut().insert(
         actix_web::http::header::HeaderName::from_static("x-timestamp"),
         actix_web::http::header::HeaderValue::from_str(&timestamp.to_string())
-            .map_err(|e| format!("Invalid timestamp format: {}", e))?
+            .map_err(|e| format!("Invalid timestamp format: {}", e))?,
     );
-    
+
     Ok(())
+}
+
 /// Configuration for security headers
 #[derive(Clone)]
 pub struct SecurityHeadersConfig {
@@ -875,9 +878,7 @@ pub struct SecurityHeadersConfig {
 
 impl Default for SecurityHeadersConfig {
     fn default() -> Self {
-        Self {
-            enable_csp: true,
-        }
+        Self { enable_csp: true }
     }
 }
 
@@ -888,10 +889,8 @@ impl SecurityHeadersConfig {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(true);
-        
-        Self {
-            enable_csp,
-        }
+
+        Self { enable_csp }
     }
 }
 
@@ -908,7 +907,11 @@ impl SecurityHeaders {
 
 impl<S, B> Transform<S, ServiceRequest> for SecurityHeaders
 where
-    S: actix_web::dev::Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
+    S: actix_web::dev::Service<
+            ServiceRequest,
+            Response = ServiceResponse<B>,
+            Error = actix_web::Error,
+        >,
     S::Future: 'static,
     B: 'static,
 {
@@ -933,7 +936,11 @@ pub struct SecurityHeadersMiddleware<S> {
 
 impl<S, B> actix_web::dev::Service<ServiceRequest> for SecurityHeadersMiddleware<S>
 where
-    S: actix_web::dev::Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
+    S: actix_web::dev::Service<
+            ServiceRequest,
+            Response = ServiceResponse<B>,
+            Error = actix_web::Error,
+        >,
     S::Future: 'static,
     B: 'static,
 {
@@ -952,7 +959,7 @@ where
 
             // Add security headers to the response
             let headers = res.headers_mut();
-            
+
             // X-Content-Type-Options: nosniff
             headers.insert(
                 HeaderName::from_static("x-content-type-options"),
@@ -1042,13 +1049,14 @@ where
 
         Box::pin(async move {
             let mut res = fut.await?;
-            
+
             // Add Request ID to response headers
             res.headers_mut().insert(
                 HeaderName::from_static("x-request-id"),
-                HeaderValue::from_str(&request_id).unwrap_or_else(|_| HeaderValue::from_static("invalid"))
+                HeaderValue::from_str(&request_id)
+                    .unwrap_or_else(|_| HeaderValue::from_static("invalid")),
             );
-            
+
             Ok(res)
         })
     }
@@ -1083,21 +1091,21 @@ pub async fn health(req: HttpRequest) -> Result<web::Json<HealthResponse>, Error
         // For GET requests, the body is typically empty
         if let Err(_response) = hmac_signature_middleware(&req, "", hmac_config) {
             return Err(actix_web::error::ErrorUnauthorized(
-                "Invalid or missing HMAC signature"
+                "Invalid or missing HMAC signature",
             ));
         }
     }
     let start_time = Instant::now();
-    
+
     let response = HealthResponse {
         status: "healthy".to_string(),
     };
-    
+
     // Record metrics if available
     if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {
         metrics.record_request("GET", "/api/health", 200, start_time.elapsed());
     }
-    
+
     Ok(web::Json(response))
 }
 
@@ -1117,12 +1125,12 @@ pub async fn version(req: HttpRequest) -> Result<web::Json<VersionResponse>, Err
         // For GET requests, the body is typically empty
         if let Err(_response) = hmac_signature_middleware(&req, "", hmac_config) {
             return Err(actix_web::error::ErrorUnauthorized(
-                "Invalid or missing HMAC signature"
+                "Invalid or missing HMAC signature",
             ));
         }
     }
     let start_time = Instant::now();
-    
+
     // Check if rate limiter is available in app data
     if let Some(limiter) = req.app_data::<web::Data<SimpleRateLimiter>>() {
         // Apply rate limiting to version endpoint
@@ -1132,7 +1140,7 @@ pub async fn version(req: HttpRequest) -> Result<web::Json<VersionResponse>, Err
                 metrics.record_request("GET", "/api/version", 429, start_time.elapsed());
             }
             return Err(actix_web::error::ErrorTooManyRequests(
-                "Rate limit exceeded. Please try again later."
+                "Rate limit exceeded. Please try again later.",
             ));
         }
     }
@@ -1142,12 +1150,12 @@ pub async fn version(req: HttpRequest) -> Result<web::Json<VersionResponse>, Err
         commit: env!("VERGEN_GIT_SHA").to_string(),
         build_time: env!("VERGEN_BUILD_TIMESTAMP").to_string(),
     };
-    
+
     // Record metrics if available
     if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {
         metrics.record_request("GET", "/api/version", 200, start_time.elapsed());
     }
-    
+
     Ok(web::Json(response))
 }
 
@@ -1169,34 +1177,37 @@ pub async fn get_metrics(req: HttpRequest) -> Result<HttpResponse, Error> {
                 .body("Metrics collection is disabled"));
         }
     }
-    
+
     // Get metrics from app data
     if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {
         // Update uptime before encoding
         metrics.update_uptime();
-        
+
         // Encode metrics in Prometheus format
         let encoder = TextEncoder::new();
         let metric_families = metrics.registry.gather();
-        
+
         let mut buffer = Vec::new();
         if let Err(e) = encoder.encode(&metric_families, &mut buffer) {
-            return Err(actix_web::error::ErrorInternalServerError(
-                format!("Failed to encode metrics: {}", e)
-            ));
+            return Err(actix_web::error::ErrorInternalServerError(format!(
+                "Failed to encode metrics: {}",
+                e
+            )));
         }
-        
-        let metrics_output = String::from_utf8(buffer)
-            .map_err(|e| actix_web::error::ErrorInternalServerError(
-                format!("Failed to convert metrics to string: {}", e)
-            ))?;
-            
+
+        let metrics_output = String::from_utf8(buffer).map_err(|e| {
+            actix_web::error::ErrorInternalServerError(format!(
+                "Failed to convert metrics to string: {}",
+                e
+            ))
+        })?;
+
         Ok(HttpResponse::Ok()
             .content_type("text/plain; version=0.0.4; charset=utf-8")
             .body(metrics_output))
     } else {
         Err(actix_web::error::ErrorServiceUnavailable(
-            "Metrics not available"
+            "Metrics not available",
         ))
     }
 }
@@ -1258,7 +1269,7 @@ pub fn create_base_app() -> App<
     let metrics = AppMetrics::new().expect("Failed to create metrics");
 
     let activity_tracker = SuspiciousActivityTracker::new();
-    
+
     App::new()
         .wrap(SecurityHeaders::new(security_config))
         .wrap(RequestIdMiddleware)
@@ -1269,26 +1280,11 @@ pub fn create_base_app() -> App<
         .app_data(web::Data::new(metrics_config))
         .app_data(web::Data::new(metrics))
         .app_data(web::Data::new(activity_tracker))
-        .service(
-            web::resource("/api/health")
-                .route(web::get().to(health))
-        )
-        .service(
-            web::resource("/api/version")
-                .route(web::get().to(version))
-        )
-        .service(
-            web::resource("/api/metrics")
-                .route(web::get().to(get_metrics))
-        )
-        .service(
-            web::resource("/auth/login")
-                .route(web::post().to(login))
-        )
-        .service(
-            web::resource("/auth/validate")
-                .route(web::post().to(validate_token))
-        )
+        .service(web::resource("/api/health").route(web::get().to(health)))
+        .service(web::resource("/api/version").route(web::get().to(version)))
+        .service(web::resource("/api/metrics").route(web::get().to(get_metrics)))
+        .service(web::resource("/auth/login").route(web::post().to(login)))
+        .service(web::resource("/auth/validate").route(web::post().to(validate_token)))
         .with_json_spec_at("/api/spec/v2")
         .build()
 }
