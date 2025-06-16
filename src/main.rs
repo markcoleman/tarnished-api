@@ -5,8 +5,7 @@ use paperclip::actix::{
     // Import the paperclip web module
     web::{self},
 };
-use tarnished_api::{create_openapi_spec, health, version, get_metrics, RateLimitConfig, SimpleRateLimiter, SecurityHeaders, SecurityHeadersConfig, MetricsConfig, AppMetrics, RequestIdMiddleware};
-use tarnished_api::{create_openapi_spec, health, version, login, validate_token, RateLimitConfig, SimpleRateLimiter, SuspiciousActivityTracker};
+use tarnished_api::{create_openapi_spec, health, version, get_metrics, login, validate_token, RateLimitConfig, SimpleRateLimiter, SecurityHeaders, SecurityHeadersConfig, MetricsConfig, AppMetrics, RequestIdMiddleware, SuspiciousActivityTracker};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -143,6 +142,8 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::resource("/api/metrics")
                     .route(web::get().to(get_metrics))
+            )
+            .service(
                 web::resource("/auth/login")
                     .route(web::post().to(login))
             )

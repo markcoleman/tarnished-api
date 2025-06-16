@@ -28,9 +28,12 @@ impl Default for MetricsConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+        }
+    }
+}
+
 use tracing::{info, warn, error};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 
 /// Audit event types for authentication logging
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -280,6 +283,9 @@ impl AppMetrics {
     pub fn update_uptime(&self) {
         let uptime = self.start_time.elapsed().as_secs_f64();
         self.app_uptime_seconds.set(uptime);
+    }
+}
+
 /// Extract client IP address from request
 pub fn extract_client_ip(req: &HttpRequest) -> String {
     // Check for X-Forwarded-For header first (common in load balancers)
@@ -1022,6 +1028,8 @@ pub fn create_base_app() -> App<
         .service(
             web::resource("/api/metrics")
                 .route(web::get().to(get_metrics))
+        )
+        .service(
             web::resource("/auth/login")
                 .route(web::post().to(login))
         )
