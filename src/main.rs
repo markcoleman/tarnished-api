@@ -1,11 +1,16 @@
-use actix_web::{App, HttpResponse, HttpServer, HttpRequest};
+use actix_web::{App, HttpRequest, HttpResponse, HttpServer};
 use paperclip::actix::{
     // extension trait for actix_web::App and proc-macro attributes
-    OpenApiExt, api_v2_operation,
+    OpenApiExt,
+    api_v2_operation,
     // Import the paperclip web module
     web::{self},
 };
-use tarnished_api::{create_openapi_spec, health, version, get_metrics, login, validate_token, RateLimitConfig, SimpleRateLimiter, SecurityHeaders, SecurityHeadersConfig, MetricsConfig, AppMetrics, RequestIdMiddleware, SuspiciousActivityTracker};
+use tarnished_api::{
+    AppMetrics, MetricsConfig, RateLimitConfig, RequestIdMiddleware, SecurityHeaders,
+    SecurityHeadersConfig, SimpleRateLimiter, SuspiciousActivityTracker, create_openapi_spec,
+    get_metrics, health, login, validate_token, version,
+};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -57,7 +62,6 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
 </body>
 </html>"#;
 
-
 #[api_v2_operation (
     summary = "Hello World Endpoint",
     description = "Returns a simple hello world message.",
@@ -68,24 +72,25 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
 )]
 async fn index(req: HttpRequest) -> HttpResponse {
     let start_time = std::time::Instant::now();
-    
+
     let response = HttpResponse::Ok()
         .content_type("text/html")
         .body(INDEX_HTML);
-    
+
     // Record metrics if available
     if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {
         metrics.record_request("GET", "/", 200, start_time.elapsed());
     }
-    
+
     response
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Initialize structured logging
-    let env_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "info,auth_audit=info".to_string());
-    
+    let env_filter =
+        std::env::var("RUST_LOG").unwrap_or_else(|_| "info,auth_audit=info".to_string());
+
     // Check if we should use JSON logging (for production/observability)
     let use_json_logging = std::env::var("LOG_FORMAT")
         .map(|v| v.to_lowercase() == "json")
@@ -97,9 +102,7 @@ async fn main() -> std::io::Result<()> {
             .with_env_filter(env_filter)
             .init();
     } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(env_filter)
-            .init();
+        tracing_subscriber::fmt().with_env_filter(env_filter).init();
     }
 
     // Print a startup message for convenience.
@@ -117,7 +120,7 @@ async fn main() -> std::io::Result<()> {
         let metrics_config = MetricsConfig::from_env();
         let metrics = AppMetrics::new().expect("Failed to create metrics");
         let activity_tracker = SuspiciousActivityTracker::new();
-        
+
         App::new()
             .wrap(SecurityHeaders::new(security_config))
             .wrap(RequestIdMiddleware)
@@ -127,30 +130,12 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(metrics_config))
             .app_data(web::Data::new(metrics))
             .app_data(web::Data::new(activity_tracker))
-            .service(
-                web::resource("/")
-                    .route(web::get().to(index))
-            )
-            .service(
-                web::resource("/api/health")
-                    .route(web::get().to(health))
-            )
-            .service(
-                web::resource("/api/version")
-                    .route(web::get().to(version))
-            )
-            .service(
-                web::resource("/api/metrics")
-                    .route(web::get().to(get_metrics))
-            )
-            .service(
-                web::resource("/auth/login")
-                    .route(web::post().to(login))
-            )
-            .service(
-                web::resource("/auth/validate")
-                    .route(web::post().to(validate_token))
-            )
+            .service(web::resource("/").route(web::get().to(index)))
+            .service(web::resource("/api/health").route(web::get().to(health)))
+            .service(web::resource("/api/version").route(web::get().to(version)))
+            .service(web::resource("/api/metrics").route(web::get().to(get_metrics)))
+            .service(web::resource("/auth/login").route(web::post().to(login)))
+            .service(web::resource("/auth/validate").route(web::post().to(validate_token)))
             .with_json_spec_at("/api/spec/v2")
             .build()
     })
@@ -161,23 +146,21 @@ async fn main() -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use actix_web::{test, web, App};
+    use actix_web::{App, test, web};
     use tarnished_api::{health, version};
 
     #[actix_web::test]
     async fn test_health() {
         // Create a test app with the /api/health route.
-        let app = test::init_service(
-            App::new().route("/api/health", web::get().to(health))
-        ).await;
-        
+        let app = test::init_service(App::new().route("/api/health", web::get().to(health))).await;
+
         // Create a test request to GET /api/health.
         let req = test::TestRequest::get().uri("/api/health").to_request();
         let resp = test::call_service(&app, req).await;
-        
+
         // Ensure the response status is successful (200 OK).
         assert!(resp.status().is_success());
-        
+
         // Check that the response body contains "healthy".
         let body = test::read_body(resp).await;
         let body_str = std::str::from_utf8(&body).unwrap();
@@ -187,17 +170,16 @@ mod tests {
     #[actix_web::test]
     async fn test_version() {
         // Create a test app with the /api/version route.
-        let app = test::init_service(
-            App::new().route("/api/version", web::get().to(version))
-        ).await;
-        
+        let app =
+            test::init_service(App::new().route("/api/version", web::get().to(version))).await;
+
         // Create a test request to GET /api/version.
         let req = test::TestRequest::get().uri("/api/version").to_request();
         let resp = test::call_service(&app, req).await;
-        
+
         // Ensure the response status is successful (200 OK).
         assert!(resp.status().is_success());
-        
+
         // Check that the response body contains version, commit, and build_time fields.
         let body = test::read_body(resp).await;
         let body_str = std::str::from_utf8(&body).unwrap();
