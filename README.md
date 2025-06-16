@@ -23,6 +23,9 @@ Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix
 - **Index Page:**  
   The root route (`/`) serves an `index.html` file that uses JavaScript to fetch the OpenAPI spec and pretty print it. This provides a quick way to view the API documentation in your browser.
 
+- **Authentication & Audit Logging:**  
+  The API includes sample authentication endpoints (`/auth/login` and `/auth/validate`) with comprehensive audit logging. All authentication events are logged in structured JSON format including timestamps, IP addresses, user IDs, methods, and outcomes. Logs can be configured for different verbosity levels and are suitable for forwarding to observability platforms like New Relic.
+
 - **Continuous Integration:**  
   GitHub Actions is configured to run tests, build the project, and run lint checks (using Clippy) on pull requests and pushes to the main branch, providing early and fast feedback.
 
@@ -39,3 +42,51 @@ The API can be configured using environment variables:
 ### Rate Limiting  
 - `RATE_LIMIT_RPM` (default: `100`) - Number of requests allowed per minute
 - `RATE_LIMIT_PERIOD` (default: `60`) - Time window in seconds for rate limiting
+## Authentication & Audit Logging Usage
+
+The API includes comprehensive audit logging for authentication events. Here's how to use it:
+
+### Environment Configuration
+
+- `LOG_FORMAT=json` - Enable structured JSON logging (recommended for production)
+- `RUST_LOG=info,auth_audit=info` - Set logging levels (auth_audit target for audit events)
+- `AUTH_MAX_FAILURES=5` - Maximum failed attempts before flagging suspicious activity
+- `AUTH_FAILURE_WINDOW=300` - Time window in seconds for failure tracking
+
+### Authentication Endpoints
+
+```bash
+# Successful login
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "password123"}'
+
+# Failed login (triggers audit log)
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "wrongpassword"}'
+
+# Token validation
+curl -X POST http://localhost:8080/auth/validate \
+  -H "Content-Type: application/json" \
+  -d '{"token": "token_12345"}'
+```
+
+### Audit Log Format
+
+Audit events are logged in structured JSON format:
+
+```json
+{
+  "event_id": "095b5c8f-ce3e-4bd6-ab4e-8dcc1d9efe30",
+  "timestamp": "2025-06-15T18:15:53.687746775Z",
+  "event_type": "login_success",
+  "outcome": "success",
+  "ip_address": "127.0.0.1",
+  "user_id": "admin",
+  "method": "POST",
+  "endpoint": "/auth/login",
+  "user_agent": "TestClient/1.0",
+  "details": null
+}
+```
