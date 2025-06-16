@@ -997,6 +997,64 @@ where
     }
 }
 
+/// Metrics middleware to automatically record request metrics
+pub struct MetricsMiddleware;
+
+impl<S, B> Transform<S, ServiceRequest> for MetricsMiddleware
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = actix_web::Error;
+    type InitError = ();
+    type Transform = MetricsService<S>;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(MetricsService { service }))
+    }
+}
+
+pub struct MetricsService<S> {
+    service: S,
+}
+
+impl<S, B> Service<ServiceRequest> for MetricsService<S>
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = actix_web::Error;
+    type Future = Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
+
+    forward_ready!(service);
+
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let start_time = Instant::now();
+        let method = req.method().to_string();
+        let path = req.path().to_string();
+
+        let fut = self.service.call(req);
+
+        Box::pin(async move {
+            let res = fut.await?;
+            let status = res.status().as_u16();
+            let duration = start_time.elapsed();
+
+            // Record metrics if available
+            if let Some(metrics) = res.request().app_data::<web::Data<AppMetrics>>() {
+                metrics.record_request(&method, &path, status, duration);
+            }
+
+            Ok(res)
+        })
+    }
+}
+
 /// Request ID middleware to add unique request IDs to all requests
 pub struct RequestIdMiddleware;
 
@@ -1095,16 +1153,10 @@ pub async fn health(req: HttpRequest) -> Result<web::Json<HealthResponse>, Error
             ));
         }
     }
-    let start_time = Instant::now();
 
     let response = HealthResponse {
         status: "healthy".to_string(),
     };
-
-    // Record metrics if available
-    if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {
-        metrics.record_request("GET", "/api/health", 200, start_time.elapsed());
-    }
 
     Ok(web::Json(response))
 }
@@ -1129,16 +1181,11 @@ pub async fn version(req: HttpRequest) -> Result<web::Json<VersionResponse>, Err
             ));
         }
     }
-    let start_time = Instant::now();
 
     // Check if rate limiter is available in app data
     if let Some(limiter) = req.app_data::<web::Data<SimpleRateLimiter>>() {
         // Apply rate limiting to version endpoint
         if let Err(_response) = rate_limit_middleware(&req, limiter) {
-            // Record metrics for rate limited request
-            if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {
-                metrics.record_request("GET", "/api/version", 429, start_time.elapsed());
-            }
             return Err(actix_web::error::ErrorTooManyRequests(
                 "Rate limit exceeded. Please try again later.",
             ));
@@ -1150,11 +1197,6 @@ pub async fn version(req: HttpRequest) -> Result<web::Json<VersionResponse>, Err
         commit: env!("VERGEN_GIT_SHA").to_string(),
         build_time: env!("VERGEN_BUILD_TIMESTAMP").to_string(),
     };
-
-    // Record metrics if available
-    if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {
-        metrics.record_request("GET", "/api/version", 200, start_time.elapsed());
-    }
 
     Ok(web::Json(response))
 }
@@ -1273,6 +1315,7 @@ pub fn create_base_app() -> App<
     App::new()
         .wrap(SecurityHeaders::new(security_config))
         .wrap(RequestIdMiddleware)
+        .wrap(MetricsMiddleware)
         .wrap_api_with_spec(create_openapi_spec())
         .app_data(web::Data::new(config))
         .app_data(web::Data::new(limiter))
