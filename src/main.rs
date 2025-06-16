@@ -1,11 +1,11 @@
-use actix_web::{App, HttpResponse, HttpServer};
+use actix_web::{App, HttpResponse, HttpServer, HttpRequest};
 use paperclip::actix::{
     // extension trait for actix_web::App and proc-macro attributes
     OpenApiExt, api_v2_operation,
     // Import the paperclip web module
     web::{self},
 };
-use tarnished_api::{create_openapi_spec, health, version, RateLimitConfig, SimpleRateLimiter};
+use tarnished_api::{create_openapi_spec, health, version, get_metrics, login, validate_token, RateLimitConfig, SimpleRateLimiter, SecurityHeaders, SecurityHeadersConfig, MetricsConfig, AppMetrics, RequestIdMiddleware, SuspiciousActivityTracker};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -66,28 +66,67 @@ const INDEX_HTML: &str = r#"<!DOCTYPE html>
         (status = 200, description = "Successful response")
     )
 )]
-async fn index() -> HttpResponse {
-    HttpResponse::Ok()
+async fn index(req: HttpRequest) -> HttpResponse {
+    let start_time = std::time::Instant::now();
+    
+    let response = HttpResponse::Ok()
         .content_type("text/html")
-        .body(INDEX_HTML)
+        .body(INDEX_HTML);
+    
+    // Record metrics if available
+    if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {
+        metrics.record_request("GET", "/", 200, start_time.elapsed());
+    }
+    
+    response
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize logger (make sure to run with RUST_LOG=info, for example)
-    env_logger::init();
+    // Initialize structured logging
+    let env_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "info,auth_audit=info".to_string());
+    
+    // Check if we should use JSON logging (for production/observability)
+    let use_json_logging = std::env::var("LOG_FORMAT")
+        .map(|v| v.to_lowercase() == "json")
+        .unwrap_or(false);
+
+    if use_json_logging {
+        tracing_subscriber::fmt()
+            .json()
+            .with_env_filter(env_filter)
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(env_filter)
+            .init();
+    }
 
     // Print a startup message for convenience.
     println!("Server running at http://127.0.0.1:8080");
+    println!("Authentication endpoints:");
+    println!("  POST /auth/login - User login");
+    println!("  POST /auth/validate - Token validation");
+    println!("Set LOG_FORMAT=json for structured JSON logging");
+    println!("Set RUST_LOG=debug,auth_audit=info for verbose logging");
 
     HttpServer::new(|| {
         let config = RateLimitConfig::from_env();
         let limiter = SimpleRateLimiter::new(config.clone());
+        let security_config = SecurityHeadersConfig::from_env();
+        let metrics_config = MetricsConfig::from_env();
+        let metrics = AppMetrics::new().expect("Failed to create metrics");
+        let activity_tracker = SuspiciousActivityTracker::new();
         
         App::new()
+            .wrap(SecurityHeaders::new(security_config))
+            .wrap(RequestIdMiddleware)
             .wrap_api_with_spec(create_openapi_spec())
             .app_data(web::Data::new(config))
             .app_data(web::Data::new(limiter))
+            .app_data(web::Data::new(metrics_config))
+            .app_data(web::Data::new(metrics))
+            .app_data(web::Data::new(activity_tracker))
             .service(
                 web::resource("/")
                     .route(web::get().to(index))
@@ -99,6 +138,18 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::resource("/api/version")
                     .route(web::get().to(version))
+            )
+            .service(
+                web::resource("/api/metrics")
+                    .route(web::get().to(get_metrics))
+            )
+            .service(
+                web::resource("/auth/login")
+                    .route(web::post().to(login))
+            )
+            .service(
+                web::resource("/auth/validate")
+                    .route(web::post().to(validate_token))
             )
             .with_json_spec_at("/api/spec/v2")
             .build()
