@@ -1,13 +1,9 @@
-use actix_web::{App, Error, HttpResponse, HttpRequest, Result, dev::ServiceRequest, dev::ServiceResponse};
-use actix_web::dev::Transform;
-use actix_web::http::header::{HeaderName, HeaderValue};
 use actix_web::{
     App, Error, HttpResponse, HttpRequest, Result,
-    dev::{ServiceRequest, ServiceResponse, forward_ready},
+    dev::{ServiceRequest, ServiceResponse, forward_ready, Service, Transform},
     http::header::{HeaderName, HeaderValue},
     HttpMessage,
 };
-use actix_web::dev::{Service, Transform};
 use paperclip::actix::{OpenApiExt, api_v2_operation, Apiv2Schema, web};
 use paperclip::v2::models::{DefaultApiRaw, Info};
 use serde::{Serialize, Deserialize};
@@ -18,7 +14,6 @@ use std::{
     sync::{Arc, Mutex}, 
     time::{Duration, Instant},
     future::{Ready, ready},
-    task::{Context, Poll},
     pin::Pin,
 };
 use uuid::Uuid;
@@ -317,12 +312,6 @@ impl SecurityHeaders {
 impl<S, B> Transform<S, ServiceRequest> for SecurityHeaders
 where
     S: actix_web::dev::Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
-/// Request ID middleware to add unique request IDs to all requests
-pub struct RequestIdMiddleware;
-
-impl<S, B> Transform<S, ServiceRequest> for RequestIdMiddleware
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
     B: 'static,
 {
@@ -348,23 +337,6 @@ pub struct SecurityHeadersMiddleware<S> {
 impl<S, B> actix_web::dev::Service<ServiceRequest> for SecurityHeadersMiddleware<S>
 where
     S: actix_web::dev::Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
-    type Error = Error;
-    type InitError = ();
-    type Transform = RequestIdService<S>;
-    type Future = Ready<Result<Self::Transform, Self::InitError>>;
-
-    fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(RequestIdService { service }))
-    }
-}
-
-pub struct RequestIdService<S> {
-    service: S,
-}
-
-impl<S, B> Service<ServiceRequest> for RequestIdService<S>
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
     B: 'static,
 {
@@ -372,9 +344,7 @@ where
     type Error = actix_web::Error;
     type Future = Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
 
-    fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.service.poll_ready(cx)
-    }
+    forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let fut = self.service.call(req);
@@ -418,7 +388,43 @@ where
                 );
             }
 
-    type Error = Error;
+            Ok(res)
+        })
+    }
+}
+
+/// Request ID middleware to add unique request IDs to all requests
+pub struct RequestIdMiddleware;
+
+impl<S, B> Transform<S, ServiceRequest> for RequestIdMiddleware
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = actix_web::Error;
+    type InitError = ();
+    type Transform = RequestIdService<S>;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(RequestIdService { service }))
+    }
+}
+
+pub struct RequestIdService<S> {
+    service: S,
+}
+
+impl<S, B> Service<ServiceRequest> for RequestIdService<S>
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = actix_web::Error;
     type Future = Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
 
     forward_ready!(service);
@@ -606,14 +612,11 @@ pub fn create_base_app() -> App<
     let config = RateLimitConfig::from_env();
     let limiter = SimpleRateLimiter::new(config.clone());
     let security_config = SecurityHeadersConfig::from_env();
-    
-    App::new()
-        .wrap(SecurityHeaders::new(security_config))
     let metrics_config = MetricsConfig::from_env();
     let metrics = AppMetrics::new().expect("Failed to create metrics");
 
-    
     App::new()
+        .wrap(SecurityHeaders::new(security_config))
         .wrap(RequestIdMiddleware)
         .wrap_api_with_spec(create_openapi_spec())
         .app_data(web::Data::new(config))

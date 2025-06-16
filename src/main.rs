@@ -5,8 +5,7 @@ use paperclip::actix::{
     // Import the paperclip web module
     web::{self},
 };
-use tarnished_api::{create_openapi_spec, health, version, RateLimitConfig, SimpleRateLimiter, SecurityHeaders, SecurityHeadersConfig};
-use tarnished_api::{create_openapi_spec, health, version, get_metrics, RateLimitConfig, SimpleRateLimiter, MetricsConfig, AppMetrics, RequestIdMiddleware};
+use tarnished_api::{create_openapi_spec, health, version, get_metrics, RateLimitConfig, SimpleRateLimiter, SecurityHeaders, SecurityHeadersConfig, MetricsConfig, AppMetrics, RequestIdMiddleware};
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -94,13 +93,11 @@ async fn main() -> std::io::Result<()> {
         let config = RateLimitConfig::from_env();
         let limiter = SimpleRateLimiter::new(config.clone());
         let security_config = SecurityHeadersConfig::from_env();
-        
-        App::new()
-            .wrap(SecurityHeaders::new(security_config))
         let metrics_config = MetricsConfig::from_env();
         let metrics = AppMetrics::new().expect("Failed to create metrics");
         
         App::new()
+            .wrap(SecurityHeaders::new(security_config))
             .wrap(RequestIdMiddleware)
             .wrap_api_with_spec(create_openapi_spec())
             .app_data(web::Data::new(config))

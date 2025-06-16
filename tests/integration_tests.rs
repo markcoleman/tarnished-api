@@ -197,7 +197,9 @@ async fn test_rate_limiter_unit() {
 #[actix_web::test]
 async fn test_security_headers_health_endpoint() {
     // Ensure CSP is enabled for this test by explicitly setting the env var
-    env::set_var("SECURITY_CSP_ENABLED", "true");
+    unsafe {
+        env::set_var("SECURITY_CSP_ENABLED", "true");
+    }
     
     // Create a test service with the same configuration as the main app
     let app = test::init_service(create_base_app()).await;
@@ -322,6 +324,8 @@ async fn test_csp_disabled() {
     unsafe {
         env::remove_var("SECURITY_CSP_ENABLED");
     }
+}
+
 /// Test that Request ID middleware adds X-Request-ID header to responses
 #[actix_web::test]
 async fn test_request_id_header_added() {
