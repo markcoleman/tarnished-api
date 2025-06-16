@@ -8,7 +8,6 @@
 //! cargo run --example hmac_demo
 //! ```
 
-use hex;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::time::{SystemTime, UNIX_EPOCH};

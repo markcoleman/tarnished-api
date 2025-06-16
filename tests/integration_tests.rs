@@ -21,6 +21,7 @@ static ENV_MUTEX: Mutex<()> = Mutex::new(());
 ///
 /// This ensures the /api/health endpoint works correctly after any changes or deployments.
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_health_endpoint_integration() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
@@ -99,6 +100,7 @@ async fn test_health_endpoint_integration() {
 ///
 /// This ensures the /api/version endpoint works correctly after any changes or deployments.
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_version_endpoint_integration() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
@@ -179,6 +181,7 @@ async fn test_version_endpoint_integration() {
 /// - Health endpoint is exempt from rate limiting
 /// - Proper 429 Too Many Requests response is returned when limit is exceeded
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_rate_limiting_integration() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
@@ -378,6 +381,7 @@ async fn test_hmac_signature_validation() {
 
 /// Integration test for HMAC signature middleware when not required
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_hmac_middleware_not_required() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
@@ -408,6 +412,7 @@ async fn test_hmac_middleware_not_required() {
 
 /// Integration test for HMAC signature middleware when required but missing headers
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_hmac_middleware_required_missing_headers() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
@@ -447,6 +452,7 @@ async fn test_hmac_middleware_required_missing_headers() {
 
 /// Integration test for HMAC signature middleware with valid signature
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_hmac_middleware_valid_signature() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
@@ -493,6 +499,7 @@ async fn test_hmac_middleware_valid_signature() {
 
 /// Integration test for HMAC signature middleware with invalid signature
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_hmac_middleware_invalid_signature() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
@@ -610,6 +617,7 @@ async fn test_response_signature_functionality() {
 /// - Headers have the correct values
 /// - CSP header is present by default
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_security_headers_health_endpoint() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
@@ -692,6 +700,7 @@ async fn test_security_headers_health_endpoint() {
 ///
 /// This test verifies that security headers are also applied to API endpoints
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_security_headers_version_endpoint() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
@@ -744,6 +753,7 @@ async fn test_security_headers_version_endpoint() {
 ///
 /// This test verifies that CSP can be disabled via environment variable
 #[actix_web::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_csp_disabled() {
     let _lock = ENV_MUTEX.lock().unwrap();
 
