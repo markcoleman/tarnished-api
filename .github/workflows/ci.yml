@@ -196,7 +196,18 @@ jobs:
           step: "build_and_push_docker_image"
           command: |
             docker buildx bake --push --metadata-file /tmp/metadata.json
-            digest=$(jq -r '.["tarnished-api"]["containerimage.digest"]' /tmp/metadata.json)
+            echo "Metadata file contents:"
+            cat /tmp/metadata.json
+            digest=$(jq -r '.["tarnished-api"]["containerimage.digest"] // empty' /tmp/metadata.json)
+            if [ -z "$digest" ]; then
+              echo "Failed to extract digest from metadata, trying alternative paths"
+              digest=$(jq -r 'to_entries[] | select(.key == "tarnished-api") | .value["containerimage.digest"] // empty' /tmp/metadata.json)
+            fi
+            if [ -z "$digest" ]; then
+              echo "Still no digest found, showing full metadata structure"
+              jq . /tmp/metadata.json
+              exit 1
+            fi
             echo "digest=$digest" >> "$GITHUB_OUTPUT"
             echo "image=ghcr.io/markcoleman/tarnished-api:latest" >> "$GITHUB_OUTPUT"
 
@@ -208,6 +219,7 @@ jobs:
     outputs:
       binary-hash: ${{ steps.binary-hash.outputs.hash }}
       binary-name: ${{ steps.binary-hash.outputs.name }}
+      subjects-base64: ${{ steps.binary-hash.outputs.subjects-base64 }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -242,8 +254,15 @@ jobs:
             echo "hash=$HASH" >> "$GITHUB_OUTPUT"
             echo "name=$BINARY_NAME" >> "$GITHUB_OUTPUT"
             echo "Binary hash: $HASH"
+            # Generate base64-encoded subjects for SLSA
+            SUBJECTS_JSON='[{"name":"'$BINARY_NAME'","digest":{"sha256":"'$HASH'"}}]'
+            echo "Generated subjects JSON: $SUBJECTS_JSON"
+            SUBJECTS_B64=$(echo -n "$SUBJECTS_JSON" | base64 -w 0)
+            echo "Base64 subjects: $SUBJECTS_B64"
+            echo "subjects-base64=$SUBJECTS_B64" >> "$GITHUB_OUTPUT"
           else
             echo "Binary not found at $BINARY_PATH"
+            ls -la target/release/ || echo "Release directory not found"
             exit 1
           fi
 
@@ -262,9 +281,9 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.10.0
     with:
-      base64-subjects: "${{ needs.build-binary.outputs.binary-name }}:${{ needs.build-binary.outputs.binary-hash }}"
+      base64-subjects: "${{ needs.build-binary.outputs.subjects-base64 }}"
       upload-assets: true
 
   # Generate SLSA provenance for container
@@ -276,7 +295,7 @@ jobs:
       id-token: write
       contents: write
       packages: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.9.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.10.0
     with:
       image: ghcr.io/markcoleman/tarnished-api
       digest: ${{ needs.docker.outputs.digest }}
