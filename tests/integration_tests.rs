@@ -188,6 +188,144 @@ async fn test_rate_limiter_unit() {
     assert!(limiter.check_rate_limit("different_ip"), "Different IP should not be rate limited");
 }
 
+/// Integration test for security headers on health endpoint
+/// 
+/// This test verifies that:
+/// - All required security headers are present in the response
+/// - Headers have the correct values
+/// - CSP header is present by default
+#[actix_web::test]
+async fn test_security_headers_health_endpoint() {
+    // Ensure CSP is enabled for this test by explicitly setting the env var
+    unsafe {
+        env::set_var("SECURITY_CSP_ENABLED", "true");
+    }
+    
+    // Create a test service with the same configuration as the main app
+    let app = test::init_service(create_base_app()).await;
+    
+    // Create a test request to GET /api/health
+    let req = test::TestRequest::get().uri("/api/health").to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    // Verify response status is 200 OK
+    assert_eq!(resp.status(), StatusCode::OK);
+    
+    let headers = resp.headers();
+    
+    // Verify X-Content-Type-Options header
+    let content_type_options = headers.get("x-content-type-options");
+    assert!(content_type_options.is_some(), "X-Content-Type-Options header should be present");
+    assert_eq!(content_type_options.unwrap().to_str().unwrap(), "nosniff");
+    
+    // Verify X-Frame-Options header
+    let frame_options = headers.get("x-frame-options");
+    assert!(frame_options.is_some(), "X-Frame-Options header should be present");
+    assert_eq!(frame_options.unwrap().to_str().unwrap(), "DENY");
+    
+    // Verify X-XSS-Protection header
+    let xss_protection = headers.get("x-xss-protection");
+    assert!(xss_protection.is_some(), "X-XSS-Protection header should be present");
+    assert_eq!(xss_protection.unwrap().to_str().unwrap(), "1; mode=block");
+    
+    // Verify Referrer-Policy header
+    let referrer_policy = headers.get("referrer-policy");
+    assert!(referrer_policy.is_some(), "Referrer-Policy header should be present");
+    assert_eq!(referrer_policy.unwrap().to_str().unwrap(), "no-referrer");
+    
+    // Verify Content-Security-Policy header (should be present when enabled)
+    let csp = headers.get("content-security-policy");
+    
+    // Debug: print all headers if CSP is missing
+    if csp.is_none() {
+        eprintln!("CSP header is missing. All headers:");
+        for (name, value) in headers.iter() {
+            eprintln!("  {}: {:?}", name, value);
+        }
+    }
+    
+    assert!(csp.is_some(), "Content-Security-Policy header should be present when enabled");
+    assert_eq!(csp.unwrap().to_str().unwrap(), "default-src 'none'; frame-ancestors 'none'");
+    
+    // Clean up environment variable
+    unsafe {
+        env::remove_var("SECURITY_CSP_ENABLED");
+    }
+}
+
+/// Integration test for security headers on version endpoint
+/// 
+/// This test verifies that security headers are also applied to API endpoints
+#[actix_web::test]
+async fn test_security_headers_version_endpoint() {
+    // Ensure CSP is enabled for this test
+    unsafe {
+        env::set_var("SECURITY_CSP_ENABLED", "true");
+    }
+    
+    // Create a test service with the same configuration as the main app
+    let app = test::init_service(create_base_app()).await;
+    
+    // Create a test request to GET /api/version
+    let req = test::TestRequest::get().uri("/api/version").to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    // Verify response status is 200 OK
+    assert_eq!(resp.status(), StatusCode::OK);
+    
+    let headers = resp.headers();
+    
+    // Verify all security headers are present
+    assert!(headers.get("x-content-type-options").is_some(), "X-Content-Type-Options header should be present");
+    assert!(headers.get("x-frame-options").is_some(), "X-Frame-Options header should be present");
+    assert!(headers.get("x-xss-protection").is_some(), "X-XSS-Protection header should be present");
+    assert!(headers.get("referrer-policy").is_some(), "Referrer-Policy header should be present");
+    assert!(headers.get("content-security-policy").is_some(), "Content-Security-Policy header should be present");
+    
+    // Clean up environment variable
+    unsafe {
+        env::remove_var("SECURITY_CSP_ENABLED");
+    }
+}
+
+/// Integration test for CSP toggle functionality
+/// 
+/// This test verifies that CSP can be disabled via environment variable
+#[actix_web::test]
+async fn test_csp_disabled() {
+    // Disable CSP for this test
+    unsafe {
+        env::set_var("SECURITY_CSP_ENABLED", "false");
+    }
+    
+    // Create a test service with CSP disabled
+    let app = test::init_service(create_base_app()).await;
+    
+    // Create a test request to GET /api/health
+    let req = test::TestRequest::get().uri("/api/health").to_request();
+    let resp = test::call_service(&app, req).await;
+    
+    // Verify response status is 200 OK
+    assert_eq!(resp.status(), StatusCode::OK);
+    
+    let headers = resp.headers();
+    
+    // Verify other security headers are still present
+    assert!(headers.get("x-content-type-options").is_some(), "X-Content-Type-Options header should be present");
+    assert!(headers.get("x-frame-options").is_some(), "X-Frame-Options header should be present");
+    assert!(headers.get("x-xss-protection").is_some(), "X-XSS-Protection header should be present");
+    assert!(headers.get("referrer-policy").is_some(), "Referrer-Policy header should be present");
+    
+    // Verify CSP header is NOT present when disabled
+    let csp = headers.get("content-security-policy");
+    assert!(csp.is_none(), "Content-Security-Policy header should not be present when disabled");
+    
+    // Clean up environment variable
+    unsafe {
+        env::remove_var("SECURITY_CSP_ENABLED");
+    }
+}
+
 /// Test that Request ID middleware adds X-Request-ID header to responses
 #[actix_web::test]
 async fn test_request_id_header_added() {

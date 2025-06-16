@@ -1,10 +1,9 @@
 use actix_web::{
     App, Error, HttpResponse, HttpRequest, Result,
-    dev::{ServiceRequest, ServiceResponse, forward_ready},
+    dev::{ServiceRequest, ServiceResponse, forward_ready, Service, Transform},
     http::header::{HeaderName, HeaderValue},
     HttpMessage,
 };
-use actix_web::dev::{Service, Transform};
 use paperclip::actix::{OpenApiExt, api_v2_operation, Apiv2Schema, web};
 use paperclip::v2::models::{DefaultApiRaw, Info};
 use serde::{Serialize, Deserialize};
@@ -271,6 +270,129 @@ pub fn rate_limit_middleware(
     Ok(())
 }
 
+/// Configuration for security headers
+#[derive(Clone)]
+pub struct SecurityHeadersConfig {
+    pub enable_csp: bool,
+}
+
+impl Default for SecurityHeadersConfig {
+    fn default() -> Self {
+        Self {
+            enable_csp: true,
+        }
+    }
+}
+
+impl SecurityHeadersConfig {
+    /// Load configuration from environment variables, falling back to defaults
+    pub fn from_env() -> Self {
+        let enable_csp = env::var("SECURITY_CSP_ENABLED")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(true);
+        
+        Self {
+            enable_csp,
+        }
+    }
+}
+
+/// Middleware that adds security headers to all responses
+pub struct SecurityHeaders {
+    config: SecurityHeadersConfig,
+}
+
+impl SecurityHeaders {
+    pub fn new(config: SecurityHeadersConfig) -> Self {
+        Self { config }
+    }
+}
+
+impl<S, B> Transform<S, ServiceRequest> for SecurityHeaders
+where
+    S: actix_web::dev::Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = actix_web::Error;
+    type InitError = ();
+    type Transform = SecurityHeadersMiddleware<S>;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(SecurityHeadersMiddleware {
+            service,
+            config: self.config.clone(),
+        }))
+    }
+}
+
+pub struct SecurityHeadersMiddleware<S> {
+    service: S,
+    config: SecurityHeadersConfig,
+}
+
+impl<S, B> actix_web::dev::Service<ServiceRequest> for SecurityHeadersMiddleware<S>
+where
+    S: actix_web::dev::Service<ServiceRequest, Response = ServiceResponse<B>, Error = actix_web::Error>,
+    S::Future: 'static,
+    B: 'static,
+{
+    type Response = ServiceResponse<B>;
+    type Error = actix_web::Error;
+    type Future = Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
+
+    forward_ready!(service);
+
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let fut = self.service.call(req);
+        let config = self.config.clone();
+
+        Box::pin(async move {
+            let mut res = fut.await?;
+
+            // Add security headers to the response
+            let headers = res.headers_mut();
+            
+            // X-Content-Type-Options: nosniff
+            headers.insert(
+                HeaderName::from_static("x-content-type-options"),
+                HeaderValue::from_static("nosniff"),
+            );
+
+            // X-Frame-Options: DENY
+            headers.insert(
+                HeaderName::from_static("x-frame-options"),
+                HeaderValue::from_static("DENY"),
+            );
+
+            // X-XSS-Protection: 1; mode=block
+            headers.insert(
+                HeaderName::from_static("x-xss-protection"),
+                HeaderValue::from_static("1; mode=block"),
+            );
+
+            // Referrer-Policy: no-referrer
+            headers.insert(
+                HeaderName::from_static("referrer-policy"),
+                HeaderValue::from_static("no-referrer"),
+            );
+
+            // Content-Security-Policy (configurable)
+            if config.enable_csp {
+                headers.insert(
+                    HeaderName::from_static("content-security-policy"),
+                    HeaderValue::from_static("default-src 'none'; frame-ancestors 'none'"),
+                );
+            }
+
+            Ok(res)
+        })
+    }
+}
+
 /// Request ID middleware to add unique request IDs to all requests
 pub struct RequestIdMiddleware;
 
@@ -281,7 +403,7 @@ where
     B: 'static,
 {
     type Response = ServiceResponse<B>;
-    type Error = Error;
+    type Error = actix_web::Error;
     type InitError = ();
     type Transform = RequestIdService<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
@@ -302,7 +424,7 @@ where
     B: 'static,
 {
     type Response = ServiceResponse<B>;
-    type Error = Error;
+    type Error = actix_web::Error;
     type Future = Pin<Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>>>>;
 
     forward_ready!(service);
@@ -475,6 +597,7 @@ pub fn create_openapi_spec() -> DefaultApiRaw {
     }
 }
 
+/// Creates a basic app with shared configuration (health endpoint + OpenAPI + rate limiting + security headers)
 /// Creates a basic app with shared configuration (health endpoint + OpenAPI + rate limiting + metrics)
 /// This can be used both for testing and as a base for the main application
 pub fn create_base_app() -> App<
@@ -488,11 +611,12 @@ pub fn create_base_app() -> App<
 > {
     let config = RateLimitConfig::from_env();
     let limiter = SimpleRateLimiter::new(config.clone());
+    let security_config = SecurityHeadersConfig::from_env();
     let metrics_config = MetricsConfig::from_env();
     let metrics = AppMetrics::new().expect("Failed to create metrics");
 
-    
     App::new()
+        .wrap(SecurityHeaders::new(security_config))
         .wrap(RequestIdMiddleware)
         .wrap_api_with_spec(create_openapi_spec())
         .app_data(web::Data::new(config))
