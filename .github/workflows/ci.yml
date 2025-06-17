@@ -195,21 +195,51 @@ jobs:
         with:
           step: "build_and_push_docker_image"
           command: |
+            set -euo pipefail
+            echo "Building and pushing Docker image..."
             docker buildx bake --push --metadata-file /tmp/metadata.json
-            echo "Metadata file contents:"
+            
+            echo "=== Metadata file contents ==="
             cat /tmp/metadata.json
+            echo "=========================="
+            
+            # Try multiple ways to extract the digest
+            digest=""
+            
+            # Method 1: Direct key access
             digest=$(jq -r '.["tarnished-api"]["containerimage.digest"] // empty' /tmp/metadata.json)
-            if [ -z "$digest" ]; then
-              echo "Failed to extract digest from metadata, trying alternative paths"
+            echo "Method 1 digest: '$digest'"
+            
+            # Method 2: Iterate through entries
+            if [ -z "$digest" ] || [ "$digest" = "null" ]; then
               digest=$(jq -r 'to_entries[] | select(.key == "tarnished-api") | .value["containerimage.digest"] // empty' /tmp/metadata.json)
+              echo "Method 2 digest: '$digest'"
             fi
-            if [ -z "$digest" ]; then
-              echo "Still no digest found, showing full metadata structure"
+            
+            # Method 3: Find any containerimage.digest
+            if [ -z "$digest" ] || [ "$digest" = "null" ]; then
+              digest=$(jq -r '.[] | select(has("containerimage.digest")) | .["containerimage.digest"] // empty' /tmp/metadata.json)
+              echo "Method 3 digest: '$digest'"
+            fi
+            
+            # Method 4: Find digest in any nested structure
+            if [ -z "$digest" ] || [ "$digest" = "null" ]; then
+              digest=$(jq -r '.. | objects | select(has("containerimage.digest")) | .["containerimage.digest"] // empty' /tmp/metadata.json | head -1)
+              echo "Method 4 digest: '$digest'"
+            fi
+            
+            if [ -z "$digest" ] || [ "$digest" = "null" ]; then
+              echo "ERROR: Failed to extract digest from metadata"
+              echo "Full metadata structure:"
               jq . /tmp/metadata.json
+              echo "Available keys:"
+              jq -r 'keys[]' /tmp/metadata.json
               exit 1
             fi
+            
+            echo "Final digest: $digest"
             echo "digest=$digest" >> "$GITHUB_OUTPUT"
-            echo "image=ghcr.io/markcoleman/tarnished-api:latest" >> "$GITHUB_OUTPUT"
+            echo "image=ghcr.io/markcoleman/tarnished-api" >> "$GITHUB_OUTPUT"
 
   # Build binary for SLSA provenance generation
   build-binary:
@@ -247,22 +277,36 @@ jobs:
       - name: Generate binary hash
         id: binary-hash
         run: |
+          set -euo pipefail
           BINARY_NAME="tarnished-api"
           BINARY_PATH="target/release/$BINARY_NAME"
+          
+          echo "Checking for binary at: $BINARY_PATH"
           if [ -f "$BINARY_PATH" ]; then
             HASH=$(sha256sum "$BINARY_PATH" | cut -d' ' -f1)
             echo "hash=$HASH" >> "$GITHUB_OUTPUT"
             echo "name=$BINARY_NAME" >> "$GITHUB_OUTPUT"
-            echo "Binary hash: $HASH"
+            echo "Binary hash generated: $HASH"
+            
             # Generate base64-encoded subjects for SLSA
             SUBJECTS_JSON='[{"name":"'$BINARY_NAME'","digest":{"sha256":"'$HASH'"}}]'
             echo "Generated subjects JSON: $SUBJECTS_JSON"
+            
+            # Validate JSON before encoding
+            echo "$SUBJECTS_JSON" | jq . > /dev/null || {
+              echo "ERROR: Invalid JSON generated"
+              exit 1
+            }
+            
             SUBJECTS_B64=$(echo -n "$SUBJECTS_JSON" | base64 -w 0)
-            echo "Base64 subjects: $SUBJECTS_B64"
+            echo "Base64 subjects (first 50 chars): ${SUBJECTS_B64:0:50}..."
             echo "subjects-base64=$SUBJECTS_B64" >> "$GITHUB_OUTPUT"
           else
-            echo "Binary not found at $BINARY_PATH"
+            echo "ERROR: Binary not found at $BINARY_PATH"
+            echo "Contents of target/release/:"
             ls -la target/release/ || echo "Release directory not found"
+            echo "Contents of target/:"
+            ls -la target/ || echo "Target directory not found"
             exit 1
           fi
 
@@ -281,7 +325,7 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.10.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
     with:
       base64-subjects: "${{ needs.build-binary.outputs.subjects-base64 }}"
       upload-assets: true
@@ -295,7 +339,7 @@ jobs:
       id-token: write
       contents: write
       packages: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.10.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
     with:
       image: ghcr.io/markcoleman/tarnished-api
       digest: ${{ needs.docker.outputs.digest }}
