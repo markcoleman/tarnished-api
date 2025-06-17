@@ -177,7 +177,8 @@ jobs:
 
       # Install syft for SBOM generation
       - name: Install syft
-        uses: anchore/sbom-action/download-syft@v0.17.10
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
       # Install cosign for signing
       - name: Install cosign
