@@ -48,4 +48,4 @@ target/
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,rust
 
-docker-cache
+docker-cachetest-provenance.json
