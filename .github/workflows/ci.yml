@@ -317,32 +317,270 @@ jobs:
           path: target/release/tarnished-api
           retention-days: 5
 
-  # Generate SLSA provenance for binary
+  # Generate SLSA provenance for binary (manual implementation for debugging)
   binary-provenance:
     name: Generate Binary SLSA Provenance
+    runs-on: ubuntu-latest
     needs: [build-binary]
     permissions:
       actions: read
       id-token: write
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.8.0
-    with:
-      base64-subjects: "${{ needs.build-binary.outputs.subjects-base64 }}"
-      upload-assets: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Decode and validate subjects
+        id: decode-subjects
+        run: |
+          set -euo pipefail
+          echo "=== DEBUGGING BINARY PROVENANCE ==="
+          echo "Decoding base64 subjects..."
+          SUBJECTS_B64="${{ needs.build-binary.outputs.subjects-base64 }}"
+          echo "Base64 input (first 100 chars): ${SUBJECTS_B64:0:100}..."
+          echo "Base64 input length: ${#SUBJECTS_B64}"
+          
+          if [ -z "$SUBJECTS_B64" ]; then
+            echo "ERROR: No base64 subjects provided"
+            echo "Available build-binary outputs:"
+            echo "binary-hash: ${{ needs.build-binary.outputs.binary-hash }}"
+            echo "binary-name: ${{ needs.build-binary.outputs.binary-name }}"
+            echo "subjects-base64: ${{ needs.build-binary.outputs.subjects-base64 }}"
+            exit 1
+          fi
+          
+          SUBJECTS_JSON=$(echo "$SUBJECTS_B64" | base64 -d)
+          echo "Decoded subjects JSON: $SUBJECTS_JSON"
+          
+          # Validate JSON structure
+          echo "$SUBJECTS_JSON" | jq . > /dev/null || {
+            echo "ERROR: Invalid JSON in subjects"
+            echo "Raw base64: $SUBJECTS_B64"
+            echo "Raw decoded: $SUBJECTS_JSON"
+            exit 1
+          }
+          
+          # Extract name and hash for verification
+          NAME=$(echo "$SUBJECTS_JSON" | jq -r '.[0].name // empty')
+          HASH=$(echo "$SUBJECTS_JSON" | jq -r '.[0].digest.sha256 // empty')
+          
+          echo "Extracted name: '$NAME'"
+          echo "Extracted hash: '$HASH'"
+          
+          if [ -z "$NAME" ] || [ -z "$HASH" ]; then
+            echo "ERROR: Missing name or hash in subjects"
+            echo "Full JSON structure:"
+            echo "$SUBJECTS_JSON" | jq .
+            exit 1
+          fi
+          
+          echo "subjects-json=$SUBJECTS_JSON" >> "$GITHUB_OUTPUT"
+          echo "binary-name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "binary-hash=$HASH" >> "$GITHUB_OUTPUT"
+      
+      - name: Generate basic SLSA provenance (simplified for debugging)
+        id: generate-provenance
+        run: |
+          set -euo pipefail
+          echo "=== GENERATING BASIC SLSA PROVENANCE ==="
+          
+          SUBJECTS_JSON='${{ steps.decode-subjects.outputs.subjects-json }}'
+          BINARY_NAME='${{ steps.decode-subjects.outputs.binary-name }}'
+          BINARY_HASH='${{ steps.decode-subjects.outputs.binary-hash }}'
+          
+          echo "Binary: $BINARY_NAME"
+          echo "Hash: $BINARY_HASH"
+          
+          # Create a basic SLSA provenance structure
+          cat > provenance.json << EOF
+          {
+            "_type": "https://in-toto.io/Statement/v0.1",
+            "predicateType": "https://slsa.dev/provenance/v0.2",
+            "subject": $SUBJECTS_JSON,
+            "predicate": {
+              "builder": {
+                "id": "https://github.com/actions/runner"
+              },
+              "buildType": "https://github.com/actions/runner",
+              "invocation": {
+                "configSource": {
+                  "uri": "${{ github.server_url }}/${{ github.repository }}",
+                  "digest": {
+                    "sha1": "${{ github.sha }}"
+                  },
+                  "entryPoint": ".github/workflows/ci.yml"
+                }
+              },
+              "metadata": {
+                "buildInvocationId": "${{ github.run_id }}",
+                "buildStartedOn": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+                "completeness": {
+                  "parameters": false,
+                  "environment": false,
+                  "materials": false
+                },
+                "reproducible": false
+              },
+              "materials": [
+                {
+                  "uri": "${{ github.server_url }}/${{ github.repository }}",
+                  "digest": {
+                    "sha1": "${{ github.sha }}"
+                  }
+                }
+              ]
+            }
+          }
+          EOF
+          
+          echo "Generated basic provenance:"
+          jq . provenance.json
+          
+          # Validate the JSON
+          jq . provenance.json > /dev/null || {
+            echo "ERROR: Generated provenance is not valid JSON"
+            exit 1
+          }
+          
+          echo "✅ Basic SLSA provenance generated successfully"
+          echo "Provenance file size: $(wc -c < provenance.json) bytes"
+          
+      - name: Upload provenance artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-provenance
+          path: provenance.json
+          retention-days: 5
 
-  # Generate SLSA provenance for container
+  # Generate SLSA provenance for container (manual implementation for debugging)  
   container-provenance:
     name: Generate Container SLSA Provenance
+    runs-on: ubuntu-latest
     needs: [docker]
     permissions:
       actions: read
       id-token: write
       contents: write
       packages: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v1.8.0
-    with:
-      image: ghcr.io/markcoleman/tarnished-api
-      digest: ${{ needs.docker.outputs.digest }}
-      registry-username: ${{ github.actor }}
-    secrets:
-      registry-password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Validate container inputs
+        id: validate-inputs
+        run: |
+          set -euo pipefail
+          echo "=== DEBUGGING CONTAINER PROVENANCE ==="
+          echo "Validating container inputs..."
+          
+          IMAGE="${{ needs.docker.outputs.image }}"
+          DIGEST="${{ needs.docker.outputs.digest }}"
+          
+          echo "Image: '$IMAGE'"
+          echo "Digest: '$DIGEST'"
+          echo "Digest length: ${#DIGEST}"
+          
+          if [ -z "$IMAGE" ] || [ -z "$DIGEST" ]; then
+            echo "ERROR: Missing image or digest"
+            echo "Available docker job outputs:"
+            echo "IMAGE: $IMAGE"
+            echo "DIGEST: $DIGEST"
+            echo "Checking if docker job succeeded..."
+            exit 1
+          fi
+          
+          # Validate digest format (should start with sha256:)
+          if [[ ! "$DIGEST" =~ ^sha256:[a-fA-F0-9]{64}$ ]]; then
+            echo "WARNING: Digest format may be unusual. Expected sha256:..., got: $DIGEST"
+            # Don't fail here, continue for debugging
+          fi
+          
+          echo "✅ Container inputs validated"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          
+      - name: Generate basic container SLSA provenance (simplified for debugging)
+        run: |
+          set -euo pipefail
+          echo "=== GENERATING BASIC CONTAINER SLSA PROVENANCE ==="
+          
+          IMAGE="${{ steps.validate-inputs.outputs.image }}"
+          DIGEST="${{ steps.validate-inputs.outputs.digest }}"
+          
+          echo "Container: $IMAGE@$DIGEST"
+          
+          # Extract SHA256 hash from digest (remove sha256: prefix if present)
+          SHA256_HASH="${DIGEST#sha256:}"
+          echo "SHA256 hash: $SHA256_HASH"
+          
+          # Create subjects JSON for container
+          SUBJECTS_JSON='[{"name":"'$IMAGE'","digest":{"sha256":"'$SHA256_HASH'"}}]'
+          echo "Container subjects: $SUBJECTS_JSON"
+          
+          # Validate JSON
+          echo "$SUBJECTS_JSON" | jq . > /dev/null || {
+            echo "ERROR: Invalid container subjects JSON"
+            echo "Raw subjects: $SUBJECTS_JSON"
+            exit 1
+          }
+          
+          # Create a basic SLSA provenance structure for container
+          cat > container-provenance.json << EOF
+          {
+            "_type": "https://in-toto.io/Statement/v0.1",
+            "predicateType": "https://slsa.dev/provenance/v0.2",
+            "subject": $SUBJECTS_JSON,
+            "predicate": {
+              "builder": {
+                "id": "https://github.com/actions/runner"
+              },
+              "buildType": "https://github.com/actions/runner/docker",
+              "invocation": {
+                "configSource": {
+                  "uri": "${{ github.server_url }}/${{ github.repository }}",
+                  "digest": {
+                    "sha1": "${{ github.sha }}"
+                  },
+                  "entryPoint": ".github/workflows/ci.yml"
+                }
+              },
+              "metadata": {
+                "buildInvocationId": "${{ github.run_id }}",
+                "buildStartedOn": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+                "completeness": {
+                  "parameters": false,
+                  "environment": false,
+                  "materials": false
+                },
+                "reproducible": false
+              },
+              "materials": [
+                {
+                  "uri": "${{ github.server_url }}/${{ github.repository }}",
+                  "digest": {
+                    "sha1": "${{ github.sha }}"
+                  }
+                }
+              ]
+            }
+          }
+          EOF
+          
+          echo "Generated basic container provenance:"
+          jq . container-provenance.json
+          
+          # Validate the JSON
+          jq . container-provenance.json > /dev/null || {
+            echo "ERROR: Generated container provenance is not valid JSON"
+            exit 1
+          }
+          
+          echo "✅ Basic container SLSA provenance generated successfully"
+          echo "Provenance file size: $(wc -c < container-provenance.json) bytes"
+          
+      - name: Upload container provenance artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-provenance
+          path: container-provenance.json
+          retention-days: 5
