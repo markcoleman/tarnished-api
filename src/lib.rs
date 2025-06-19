@@ -23,6 +23,8 @@ use std::{
 };
 use uuid::Uuid;
 
+pub mod newrelic;
+
 /// Metrics configuration
 #[derive(Clone)]
 pub struct MetricsConfig {
@@ -37,6 +39,7 @@ impl Default for MetricsConfig {
 
 use chrono::{DateTime, Utc};
 use tracing::{error, info, warn};
+use crate::newrelic::redact_sensitive_data;
 
 /// Audit event types for authentication logging
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,43 +119,72 @@ impl AuthAuditEvent {
         self
     }
 
-    /// Log the audit event using structured logging
+    /// Log the audit event using structured logging with New Relic correlation
     pub fn log(&self) {
         let event_json = serde_json::to_string(self)
             .unwrap_or_else(|_| "Failed to serialize audit event".to_string());
+        
+        // Redact sensitive data from the JSON
+        let redacted_json = redact_sensitive_data(&event_json);
+
+        // Get environment metadata for enhanced logging
+        let commit_sha = std::env::var("GITHUB_SHA").unwrap_or_else(|_| "unknown".to_string());
+        let git_ref = std::env::var("GITHUB_REF").unwrap_or_else(|_| "unknown".to_string());
+        let environment = std::env::var("NEW_RELIC_ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
 
         match self.outcome {
             AuthEventOutcome::Success => {
                 info!(
                     target: "auth_audit",
+                    event_id = %self.event_id,
                     event_type = ?self.event_type,
                     outcome = ?self.outcome,
                     ip_address = %self.ip_address,
                     user_id = ?self.user_id,
+                    method = %self.method,
+                    endpoint = %self.endpoint,
+                    user_agent = ?self.user_agent,
+                    commit_sha = %commit_sha,
+                    git_ref = %git_ref,
+                    environment = %environment,
                     "{}",
-                    event_json
+                    redacted_json
                 );
             }
             AuthEventOutcome::Failure => {
                 warn!(
                     target: "auth_audit",
+                    event_id = %self.event_id,
                     event_type = ?self.event_type,
                     outcome = ?self.outcome,
                     ip_address = %self.ip_address,
                     user_id = ?self.user_id,
+                    method = %self.method,
+                    endpoint = %self.endpoint,
+                    user_agent = ?self.user_agent,
+                    commit_sha = %commit_sha,
+                    git_ref = %git_ref,
+                    environment = %environment,
                     "{}",
-                    event_json
+                    redacted_json
                 );
             }
             AuthEventOutcome::Blocked => {
                 error!(
                     target: "auth_audit",
+                    event_id = %self.event_id,
                     event_type = ?self.event_type,
                     outcome = ?self.outcome,
                     ip_address = %self.ip_address,
                     user_id = ?self.user_id,
+                    method = %self.method,
+                    endpoint = %self.endpoint,
+                    user_agent = ?self.user_agent,
+                    commit_sha = %commit_sha,
+                    git_ref = %git_ref,
+                    environment = %environment,
                     "{}",
-                    event_json
+                    redacted_json
                 );
             }
         }
@@ -1092,6 +1124,8 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+        let start_time = std::time::Instant::now();
+        
         // Extract or generate Request ID
         let request_id = req
             .headers()
@@ -1100,19 +1134,49 @@ where
             .map(|s| s.to_string())
             .unwrap_or_else(|| Uuid::new_v4().to_string());
 
+        // Create New Relic fields for enhanced logging
+        let newrelic_fields = crate::newrelic::NewRelicFields::from_request(req.request());
+
         // Store Request ID in request extensions for potential use in handlers
         req.extensions_mut().insert(request_id.clone());
+
+        // Log incoming request with New Relic fields
+        tracing::info!(
+            target: "request",
+            request_id = %request_id,
+            method = %newrelic_fields.method,
+            path = %newrelic_fields.path,
+            ip_address = %newrelic_fields.ip_address,
+            user_agent = ?newrelic_fields.user_agent,
+            commit_sha = %std::env::var("GITHUB_SHA").unwrap_or_else(|_| "unknown".to_string()),
+            git_ref = %std::env::var("GITHUB_REF").unwrap_or_else(|_| "unknown".to_string()),
+            environment = %std::env::var("NEW_RELIC_ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
+            "Incoming request"
+        );
 
         let fut = self.service.call(req);
 
         Box::pin(async move {
             let mut res = fut.await?;
+            let duration = start_time.elapsed();
 
             // Add Request ID to response headers
             res.headers_mut().insert(
                 HeaderName::from_static("x-request-id"),
                 HeaderValue::from_str(&request_id)
                     .unwrap_or_else(|_| HeaderValue::from_static("invalid")),
+            );
+
+            // Log completed request with response details
+            tracing::info!(
+                target: "request",
+                request_id = %request_id,
+                status = %res.status().as_u16(),
+                duration_ms = %duration.as_millis(),
+                commit_sha = %std::env::var("GITHUB_SHA").unwrap_or_else(|_| "unknown".to_string()),
+                git_ref = %std::env::var("GITHUB_REF").unwrap_or_else(|_| "unknown".to_string()),
+                environment = %std::env::var("NEW_RELIC_ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
+                "Request completed"
             );
 
             Ok(res)

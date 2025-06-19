@@ -10,6 +10,7 @@ use tarnished_api::{
     AppMetrics, MetricsConfig, RateLimitConfig, RequestIdMiddleware, SecurityHeaders,
     SecurityHeadersConfig, SimpleRateLimiter, SuspiciousActivityTracker, create_openapi_spec,
     get_metrics, health, login, validate_token, version,
+    newrelic::{NewRelicConfig, init_tracing, shutdown_tracing},
 };
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
@@ -87,6 +88,16 @@ async fn index(req: HttpRequest) -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Initialize New Relic configuration
+    let newrelic_config = NewRelicConfig::from_env();
+    
+    // Initialize New Relic tracing first if enabled
+    if newrelic_config.enabled {
+        if let Err(e) = init_tracing(&newrelic_config) {
+            eprintln!("Failed to initialize New Relic tracing: {}", e);
+        }
+    }
+
     // Initialize structured logging
     let env_filter =
         std::env::var("RUST_LOG").unwrap_or_else(|_| "info,auth_audit=info".to_string());
@@ -96,22 +107,59 @@ async fn main() -> std::io::Result<()> {
         .map(|v| v.to_lowercase() == "json")
         .unwrap_or(false);
 
+    // Set up tracing subscriber
     if use_json_logging {
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(env_filter)
             .init();
     } else {
-        tracing_subscriber::fmt().with_env_filter(env_filter).init();
+        tracing_subscriber::fmt()
+            .with_env_filter(env_filter)
+            .init();
     }
 
+    // Set up panic handler to forward panics to logs
+    std::panic::set_hook(Box::new(|panic_info| {
+        let payload = panic_info.payload();
+        let panic_msg = if let Some(s) = payload.downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Unknown panic".to_string()
+        };
+        
+        let location = panic_info.location()
+            .map(|loc| format!("{}:{}:{}", loc.file(), loc.line(), loc.column()))
+            .unwrap_or_else(|| "unknown location".to_string());
+
+        tracing::error!(
+            target: "panic",
+            message = %panic_msg,
+            location = %location,
+            commit_sha = %std::env::var("GITHUB_SHA").unwrap_or_else(|_| "unknown".to_string()),
+            git_ref = %std::env::var("GITHUB_REF").unwrap_or_else(|_| "unknown".to_string()),
+            environment = %std::env::var("NEW_RELIC_ENVIRONMENT").unwrap_or_else(|_| "development".to_string()),
+            "Application panic occurred"
+        );
+    }));
+
     // Print a startup message for convenience.
+    tracing::info!(
+        message = "Server starting at http://127.0.0.1:8080",
+        newrelic_enabled = newrelic_config.enabled,
+        commit_sha = %std::env::var("GITHUB_SHA").unwrap_or_else(|_| "unknown".to_string()),
+        git_ref = %std::env::var("GITHUB_REF").unwrap_or_else(|_| "unknown".to_string()),
+        environment = %newrelic_config.environment,
+    );
     println!("Server running at http://127.0.0.1:8080");
     println!("Authentication endpoints:");
     println!("  POST /auth/login - User login");
     println!("  POST /auth/validate - Token validation");
     println!("Set LOG_FORMAT=json for structured JSON logging");
     println!("Set RUST_LOG=debug,auth_audit=info for verbose logging");
+    println!("Set NEW_RELIC_LICENSE_KEY to enable New Relic integration");
 
     HttpServer::new(|| {
         let config = RateLimitConfig::from_env();
@@ -141,7 +189,11 @@ async fn main() -> std::io::Result<()> {
     })
     .bind("127.0.0.1:8080")?
     .run()
-    .await
+    .await?;
+
+    // Shutdown New Relic tracing gracefully
+    shutdown_tracing();
+    Ok(())
 }
 
 #[cfg(test)]
