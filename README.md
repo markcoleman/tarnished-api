@@ -166,3 +166,99 @@ GitHub Actions workflow includes:
   "message": "{\"event_id\":\"550e8400-e29b-41d4-a716-446655440000\",...}"
 }
 ```
+
+## Project Structure
+
+The codebase is organized into focused modules following Rust best practices:
+
+```
+src/
+├── lib.rs                 # Main library with module exports
+├── main.rs               # Application entry point
+├── newrelic.rs           # New Relic integration
+├── config/               # Configuration structures
+│   ├── mod.rs           #   Module exports
+│   ├── metrics.rs       #   Metrics configuration
+│   ├── rate_limit.rs    #   Rate limiting configuration
+│   ├── hmac.rs          #   HMAC signature configuration
+│   └── security.rs      #   Security headers configuration
+├── models/               # Data structures and schemas
+│   ├── mod.rs           #   Module exports
+│   ├── api.rs           #   API response models
+│   ├── auth.rs          #   Authentication models
+│   └── audit.rs         #   Audit logging data structures
+├── handlers/             # HTTP request handlers
+│   ├── mod.rs           #   Module exports
+│   ├── health.rs        #   Health check endpoint
+│   ├── version.rs       #   Version information endpoint
+│   ├── metrics.rs       #   Prometheus metrics endpoint
+│   ├── auth.rs          #   Authentication endpoints
+│   └── openapi.rs       #   OpenAPI spec generation
+├── middleware/           # Custom middleware
+│   ├── mod.rs           #   Module exports
+│   ├── security.rs      #   Security headers middleware
+│   ├── request_id.rs    #   Request ID tracking middleware
+│   └── metrics.rs       #   Metrics collection middleware
+├── services/             # Business logic services
+│   ├── mod.rs           #   Module exports
+│   ├── metrics.rs       #   Prometheus metrics service
+│   ├── rate_limit.rs    #   Rate limiting service
+│   ├── auth.rs          #   Authentication services
+│   └── suspicious_activity.rs # Suspicious activity tracking
+└── utils/                # Utility functions
+    ├── mod.rs           #   Module exports
+    ├── http.rs          #   HTTP utility functions
+    ├── hmac.rs          #   HMAC signature utilities
+    └── route.rs         #   Route pattern extraction
+```
+
+### Module Responsibilities
+
+#### `models/`
+Contains all data structures, request/response models, and type definitions. This includes:
+- API response schemas (HealthResponse, VersionResponse)
+- Authentication models (LoginRequest, LoginResponse, TokenValidationRequest)
+- Audit logging structures (AuthAuditEvent, AuthEventType, AuthEventOutcome)
+
+#### `handlers/`
+HTTP request handlers that process incoming requests and generate responses:
+- `health.rs` - Health check endpoint with optional HMAC validation
+- `version.rs` - Version information with rate limiting
+- `metrics.rs` - Prometheus metrics endpoint with toggleable collection
+- `auth.rs` - Login and token validation with comprehensive audit logging
+- `openapi.rs` - OpenAPI specification generation and app factory
+
+#### `middleware/`
+Custom middleware for cross-cutting concerns:
+- `security.rs` - Security headers (CSP, HSTS, XSS protection, etc.)
+- `request_id.rs` - Request ID generation and tracking for distributed tracing
+- `metrics.rs` - Automatic metrics collection for all HTTP requests
+
+#### `services/`
+Business logic and core services:
+- `metrics.rs` - Prometheus metrics collection and rendering
+- `rate_limit.rs` - In-memory rate limiting with configurable limits
+- `auth.rs` - HMAC signature validation and response signing
+- `suspicious_activity.rs` - Failed authentication attempt tracking
+
+#### `utils/`
+Utility functions and helpers:
+- `http.rs` - Client IP extraction, user agent parsing
+- `hmac.rs` - HMAC-SHA256 signature generation and validation
+- `route.rs` - Route pattern extraction for metrics
+
+#### `config/`
+Configuration structures with environment variable loading:
+- `metrics.rs` - Metrics collection configuration
+- `rate_limit.rs` - Rate limiting parameters
+- `hmac.rs` - HMAC signature settings
+- `security.rs` - Security headers configuration
+
+### Developer Experience Benefits
+
+🧭 **Improved Discoverability**: Clear module hierarchy makes finding functionality intuitive
+📦 **High Modularity**: Each module has a single responsibility, enabling parallel development
+🧼 **Better Maintainability**: Separation of concerns reduces bugs and accelerates code reviews
+🚀 **Enhanced Developer Velocity**: New developers can quickly understand and contribute to the codebase
+📚 **Comprehensive Documentation**: Each module and public function includes detailed doc comments
+
