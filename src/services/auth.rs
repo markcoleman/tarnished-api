@@ -92,15 +92,15 @@ pub fn add_response_signature(
     let signature = hmac::generate_signature(&config.secret, body, timestamp)?;
 
     response.headers_mut().insert(
-        actix_web::http::header::HeaderName::from_static("x-response-signature"),
+        actix_web::http::header::HeaderName::from_static("x-signature"),
         actix_web::http::header::HeaderValue::from_str(&signature)
-            .map_err(|e| format!("Invalid signature header value: {}", e))?,
+            .map_err(|e| format!("Invalid signature format: {}", e))?,
     );
 
     response.headers_mut().insert(
-        actix_web::http::header::HeaderName::from_static("x-response-timestamp"),
+        actix_web::http::header::HeaderName::from_static("x-timestamp"),
         actix_web::http::header::HeaderValue::from_str(&timestamp.to_string())
-            .map_err(|e| format!("Invalid timestamp header value: {}", e))?,
+            .map_err(|e| format!("Invalid timestamp format: {}", e))?,
     );
 
     Ok(())

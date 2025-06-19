@@ -3,9 +3,9 @@
 use paperclip::v2::models::{DefaultApiRaw, Info};
 use actix_web::App;
 use crate::{
-    config::{RateLimitConfig, SecurityHeadersConfig, MetricsConfig},
+    config::{RateLimitConfig, SecurityHeadersConfig, MetricsConfig, HmacConfig},
     services::{rate_limit::SimpleRateLimiter, AppMetrics, SuspiciousActivityTracker},
-    middleware::{SecurityHeaders, RequestIdMiddleware},
+    middleware::{SecurityHeaders, RequestIdMiddleware, MetricsMiddleware},
     handlers::{health, version, get_metrics, login, validate_token},
 };
 use paperclip::actix::{OpenApiExt, web};
@@ -70,6 +70,7 @@ pub fn create_base_app() -> App<
 > {
     let config = RateLimitConfig::from_env();
     let limiter = SimpleRateLimiter::new(config.clone());
+    let hmac_config = HmacConfig::from_env();
     let security_config = SecurityHeadersConfig::from_env();
     let metrics_config = MetricsConfig::from_env();
     let metrics = AppMetrics::new().expect("Failed to create metrics");
@@ -78,9 +79,11 @@ pub fn create_base_app() -> App<
     App::new()
         .wrap(SecurityHeaders::new(security_config))
         .wrap(RequestIdMiddleware)
+        .wrap(MetricsMiddleware)
         .wrap_api_with_spec(create_openapi_spec())
         .app_data(web::Data::new(config))
         .app_data(web::Data::new(limiter))
+        .app_data(web::Data::new(hmac_config))
         .app_data(web::Data::new(metrics_config))
         .app_data(web::Data::new(metrics))
         .app_data(web::Data::new(activity_tracker))
