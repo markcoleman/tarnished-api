@@ -237,7 +237,9 @@ jobs:
         uses: ./.github/actions/time-and-report
         with:
           step: "generate_sbom"
-          command: "syft ghcr.io/markcoleman/tarnished-api:latest -o cyclonedx-json=tarnished-api-sbom.json -o spdx-json=tarnished-api-sbom.spdx.json --cache-dir=/tmp/syft-cache"
+          command: "syft ghcr.io/markcoleman/tarnished-api:latest -o cyclonedx-json=tarnished-api-sbom.json -o spdx-json=tarnished-api-sbom.spdx.json"
+        env:
+          SYFT_CACHE_DIR: /tmp/syft-cache
 
       # Push the Docker image after SBOM generation
       - name: Push Docker Image
