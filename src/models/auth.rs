@@ -28,5 +28,6 @@ pub struct TokenValidationRequest {
 #[derive(Serialize, Deserialize, Apiv2Schema)]
 pub struct TokenValidationResponse {
     pub valid: bool,
+    pub user_id: Option<String>,
     pub message: String,
 }

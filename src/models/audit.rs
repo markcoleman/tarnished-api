@@ -94,6 +94,12 @@ impl AuthAuditEvent {
         self
     }
 
+    /// Add additional details information (alias for with_context for compatibility)
+    pub fn with_details(mut self, details: Option<String>) -> Self {
+        self.additional_context = details;
+        self
+    }
+
     /// Log the audit event using structured logging
     pub fn log(&self) {
         info!(

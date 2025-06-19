@@ -182,7 +182,7 @@ async fn test_audit_event_creation() {
     assert_eq!(event.endpoint, "/auth/login");
     assert_eq!(event.user_id, Some("test_user".to_string()));
     assert_eq!(event.user_agent, Some("Test Agent".to_string()));
-    assert_eq!(event.details, Some("Test login event".to_string()));
+    assert_eq!(event.additional_context, Some("Test login event".to_string()));
 
     // Verify event can be serialized to JSON
     let json = serde_json::to_string(&event).expect("Should serialize to JSON");

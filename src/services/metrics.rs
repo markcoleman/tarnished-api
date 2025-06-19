@@ -1,7 +1,7 @@
 //! Metrics collection and Prometheus integration service.
 
 use prometheus::{
-    CounterVec, Encoder, Gauge, HistogramOpts, HistogramVec, Opts, Registry, TextEncoder,
+    CounterVec, Gauge, HistogramOpts, HistogramVec, Opts, Registry, TextEncoder,
 };
 use std::time::{Duration, Instant};
 

@@ -3,7 +3,7 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     http::header::{HeaderName, HeaderValue},
-    Error,
+    HttpMessage, Error,
 };
 use std::{
     future::{ready, Ready},
