@@ -32,6 +32,10 @@ Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix
 - **Dependabot:**  
   Dependabot is configured to monitor Cargo dependencies and devcontainer configurations, keeping the project up-to-date with minimal effort.
 
+
+- **Software Bill of Materials (SBOM):**  
+  Every build generates verifiable SBOMs in both CycloneDX and SPDX formats using syft. SBOMs are cryptographically signed using cosign with keyless OIDC signing, attached to Docker images, and uploaded as artifacts for supply chain transparency and vulnerability tracking.
+
 ## Configuration
 
 The API can be configured using environment variables:
