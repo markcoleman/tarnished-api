@@ -46,6 +46,15 @@ The API can be configured using environment variables:
 ### Rate Limiting  
 - `RATE_LIMIT_RPM` (default: `100`) - Number of requests allowed per minute
 - `RATE_LIMIT_PERIOD` (default: `60`) - Time window in seconds for rate limiting
+
+### New Relic Integration
+- `NEW_RELIC_LICENSE_KEY` - Your New Relic license key (enables New Relic integration when set)
+- `NEW_RELIC_ENABLED` (default: `true`) - Set to `false` to disable New Relic even when license key is present
+- `NEW_RELIC_SERVICE_NAME` (default: `tarnished-api`) - Service name for New Relic
+- `NEW_RELIC_SERVICE_VERSION` (default: from Cargo.toml) - Service version for New Relic
+- `NEW_RELIC_ENVIRONMENT` (default: `development`) - Environment name for New Relic
+- `NEW_RELIC_LOG_ENDPOINT` (default: `https://log-api.newrelic.com/log/v1`) - New Relic logs endpoint
+
 ## Authentication & Audit Logging Usage
 
 The API includes comprehensive audit logging for authentication events. Here's how to use it:
@@ -56,6 +65,7 @@ The API includes comprehensive audit logging for authentication events. Here's h
 - `RUST_LOG=info,auth_audit=info` - Set logging levels (auth_audit target for audit events)
 - `AUTH_MAX_FAILURES=5` - Maximum failed attempts before flagging suspicious activity
 - `AUTH_FAILURE_WINDOW=300` - Time window in seconds for failure tracking
+- `NEW_RELIC_LICENSE_KEY` - Set to enable New Relic logging integration
 
 ### Authentication Endpoints
 
@@ -92,5 +102,67 @@ Audit events are logged in structured JSON format:
   "endpoint": "/auth/login",
   "user_agent": "TestClient/1.0",
   "details": null
+}
+```
+
+## New Relic Observability Integration
+
+The API includes comprehensive New Relic logging integration with the following features:
+
+### ✅ Enhanced Structured Logging
+- JSON-formatted logs compatible with New Relic log ingestion
+- Automatic inclusion of trace metadata (commit SHA, Git ref, environment)
+- Request correlation with unique request IDs
+- HTTP request and response logging with timing metrics
+
+### ✅ Sensitive Data Protection
+- Automatic redaction of passwords, tokens, API keys, and secrets
+- PII filtering (email addresses, SSN patterns, credit card numbers)
+- Safe logging of authentication events without exposing credentials
+
+### ✅ Error and Panic Capture
+- Global panic handler forwarding panics to New Relic logs
+- Structured error logging with stack traces and context
+- Authentication failure tracking and suspicious activity detection
+
+### ✅ Custom Metadata Fields
+All logs include contextual metadata:
+- `request_id` - Unique identifier for request correlation
+- `commit_sha` - Git commit hash (from GITHUB_SHA)
+- `git_ref` - Git branch/tag reference (from GITHUB_REF)
+- `environment` - Deployment environment
+- `user_agent` - Client user agent string
+- `ip_address` - Client IP address
+- `method` and `path` - HTTP method and request path
+- `status` and `duration_ms` - Response status and timing
+
+### ✅ CI/CD Integration
+GitHub Actions workflow includes:
+- Build and test step timing forwarded to New Relic
+- Workflow metadata (run ID, actor, PR number, commit message)
+- Automated log forwarding for build/test failures
+
+### Example Log Output
+
+```json
+{
+  "timestamp": "2024-01-15T10:30:45.123Z",
+  "level": "INFO",
+  "target": "auth_audit",
+  "fields": {
+    "event_id": "550e8400-e29b-41d4-a716-446655440000",
+    "event_type": "login_success",
+    "outcome": "success",
+    "ip_address": "192.168.1.100",
+    "user_id": "admin",
+    "method": "POST",
+    "endpoint": "/auth/login",
+    "user_agent": "curl/7.68.0",
+    "commit_sha": "abc123def456",
+    "git_ref": "refs/heads/main",
+    "environment": "production",
+    "request_id": "req_789xyz"
+  },
+  "message": "{\"event_id\":\"550e8400-e29b-41d4-a716-446655440000\",...}"
 }
 ```
