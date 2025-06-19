@@ -45,7 +45,7 @@ jobs:
       - name: Verify SBOM attestation
         run: |
           cosign verify-attestation \
-            --type=sbom \
+            --type=cyclonedx \
             --certificate-identity-regexp='https://github.com/markcoleman/tarnished-api/.*' \
             --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
             ${{ inputs.image }}
@@ -54,7 +54,7 @@ jobs:
         run: |
           # Download SBOM from the attestation
           cosign download attestation ${{ inputs.image }} \
-            --predicate-type=https://spdx.dev/Document > sbom-attestation.json
+            --predicate-type=https://cyclonedx.org/bom > sbom-attestation.json
           
           # Extract the SBOM content
           jq -r '.predicate' sbom-attestation.json > extracted-sbom.json

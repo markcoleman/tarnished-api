@@ -218,19 +218,12 @@ jobs:
           step: "sign_sbom"
           command: "cosign sign-blob --yes tarnished-api-sbom.json --output-signature=tarnished-api-sbom.json.sig --output-certificate=tarnished-api-sbom.json.pem"
 
-      # Attach SBOM to the Docker image
-      - name: Attach SBOM to image
+      # Create and sign SBOM attestation
+      - name: Create SBOM attestation
         uses: ./.github/actions/time-and-report
         with:
-          step: "attach_sbom"
-          command: "cosign attach sbom --sbom tarnished-api-sbom.json ghcr.io/markcoleman/tarnished-api:latest"
-
-      # Sign the attached SBOM attestation
-      - name: Sign SBOM attestation
-        uses: ./.github/actions/time-and-report
-        with:
-          step: "sign_sbom_attestation"
-          command: "cosign sign --yes ghcr.io/markcoleman/tarnished-api:latest-sbom.att"
+          step: "create_sbom_attestation"
+          command: "cosign attest --yes --predicate tarnished-api-sbom.json --type cyclonedx ghcr.io/markcoleman/tarnished-api:latest"
 
       # Verify the SBOM signature (as a validation step)
       - name: Verify SBOM signature
@@ -244,7 +237,7 @@ jobs:
         uses: ./.github/actions/time-and-report
         with:
           step: "verify_sbom_attestation"
-          command: "cosign verify-attestation --type=sbom --certificate-identity-regexp='https://github.com/markcoleman/tarnished-api/.*' --certificate-oidc-issuer=https://token.actions.githubusercontent.com ghcr.io/markcoleman/tarnished-api:latest"
+          command: "cosign verify-attestation --type=cyclonedx --certificate-identity-regexp='https://github.com/markcoleman/tarnished-api/.*' --certificate-oidc-issuer=https://token.actions.githubusercontent.com ghcr.io/markcoleman/tarnished-api:latest"
 
       # Upload SBOMs as artifacts for centralized access
       - name: Upload SBOM artifacts
