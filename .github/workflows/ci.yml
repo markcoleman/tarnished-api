@@ -6,11 +6,13 @@ on:
     paths-ignore:
       - '**/*.md'
       - 'CODEOWNERS'
+      - 'LICENCE'
   pull_request:
     branches: [ main ]
     paths-ignore:
       - '**/*.md'
       - 'CODEOWNERS'
+      - 'LICENCE'
 
 permissions:
   contents: read
