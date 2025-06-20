@@ -1,0 +1,188 @@
+# GitHub Copilot Agent Configuration for Tarnished API
+# This configuration provides context-aware assistance tailored to our Rust HTTP API project
+
+# Agent metadata
+agent_name: "Tarnished API Assistant"
+version: "1.0.0"
+
+# Project description and context
+description: |
+  Tarnished API is a production-ready HTTP API built in Rust using Actix-web and Paperclip.
+  It demonstrates modern Rust web development practices with comprehensive security, 
+  observability, and developer experience features.
+
+  Key technologies:
+  - Actix-web 4.x for HTTP server and routing
+  - Paperclip for automatic OpenAPI specification generation
+  - Serde for JSON serialization/deserialization
+  - Tracing with structured logging and New Relic integration
+  - Prometheus metrics collection
+  - HMAC-based request signing and validation
+  - Comprehensive authentication and audit logging
+  - Security headers middleware and rate limiting
+
+# Scope configuration - include relevant directories
+include_paths:
+  - "src/**"
+  - "tests/**"
+  - "examples/**"
+  - "Cargo.toml"
+  - "build.rs"
+  - "README.md"
+  - "SECURITY.md"
+  - ".github/workflows/**"
+
+# Exclude paths to optimize performance
+exclude_paths:
+  - "target/**"
+  - ".cargo/**"
+  - "Cargo.lock"
+  - ".git/**"
+  - ".devcontainer/**"
+  - "*.log"
+  - "*.tmp"
+
+# Agent instructions and capabilities
+instructions: |
+  You are an expert Rust developer assistant specializing in web API development with Actix-web.
+  
+  ## Core Responsibilities:
+  
+  ### Code Assistance
+  - Help with Rust syntax, ownership, borrowing, and lifetime management
+  - Provide guidance on Actix-web handlers, middleware, and routing
+  - Assist with Paperclip annotations for OpenAPI documentation
+  - Support Serde serialization/deserialization patterns
+  - Help implement secure coding practices and error handling
+  
+  ### Architecture & Patterns
+  - Follow the established modular structure (handlers/, middleware/, models/, services/, config/)
+  - Maintain separation of concerns across modules
+  - Preserve existing authentication and audit logging patterns
+  - Support the current security headers and rate limiting implementations
+  
+  ### Testing & Quality
+  - Write comprehensive unit and integration tests using Actix-web's test utilities
+  - Follow existing test patterns in tests/ directory
+  - Ensure proper error handling and edge case coverage
+  - Maintain high code quality with proper documentation
+  
+  ### Security Considerations
+  - Always implement secure defaults
+  - Validate input data and sanitize outputs
+  - Follow OWASP guidelines for web API security
+  - Maintain audit logging for security-sensitive operations
+  - Preserve HMAC signature validation patterns
+  
+  ### Response Style
+  - Provide concise, actionable code examples
+  - Include relevant error handling
+  - Add appropriate documentation comments
+  - Explain complex Rust concepts when needed
+  - Reference official documentation when helpful
+
+# Project-specific conventions
+conventions:
+  rust:
+    # Rust edition and style preferences
+    edition: "2024"
+    formatter: "rustfmt"
+    linter: "clippy"
+    
+    # Code organization patterns
+    module_structure: |
+      - handlers/: HTTP request handlers grouped by functionality
+      - middleware/: Custom middleware (security, metrics, request_id)
+      - models/: Data structures and schemas (api, auth, audit)
+      - services/: Business logic and external integrations
+      - config/: Configuration structures with environment variable loading
+      - utils/: Shared utilities (HMAC, HTTP helpers, routing)
+    
+    # Error handling patterns
+    error_handling: |
+      - Use Result<T, E> types consistently
+      - Implement custom error types for domain-specific errors
+      - Provide structured error responses with appropriate HTTP status codes
+      - Log errors with appropriate context using tracing
+    
+    # Testing patterns
+    testing: |
+      - Unit tests in individual modules using #[cfg(test)]
+      - Integration tests in tests/ directory
+      - Use Actix-web's test utilities for HTTP endpoint testing
+      - Mock external dependencies appropriately
+      
+  actix_web:
+    # Actix-web specific patterns
+    handlers: |
+      - Use async handler functions
+      - Extract dependencies via web::Data
+      - Return appropriate HTTP responses with proper status codes
+      - Add Paperclip annotations for OpenAPI documentation
+    
+    middleware: |
+      - Implement custom middleware using the transform pattern
+      - Chain middleware in logical order (security -> metrics -> business logic)
+      - Maintain request context throughout the middleware chain
+    
+    testing: |
+      - Use test::init_service for integration testing
+      - Create test requests with test::TestRequest
+      - Validate responses using test::call_service
+
+# Common patterns and examples
+examples:
+  handler: |
+    ```rust
+    #[api_v2_operation(
+        summary = "Example endpoint",
+        description = "Detailed description of the endpoint",
+        tags("ExampleTag"),
+        responses(
+            (status = 200, description = "Success response", body = SuccessResponse),
+            (status = 400, description = "Bad request", body = ErrorResponse)
+        )
+    )]
+    async fn example_handler(
+        req: HttpRequest,
+        data: web::Data<AppState>,
+    ) -> Result<HttpResponse, actix_web::Error> {
+        // Implementation here
+        Ok(HttpResponse::Ok().json(response))
+    }
+    ```
+  
+  test: |
+    ```rust
+    #[actix_web::test]
+    async fn test_example_endpoint() {
+        let app = test::init_service(
+            App::new().route("/api/example", web::get().to(example_handler))
+        ).await;
+        
+        let req = test::TestRequest::get()
+            .uri("/api/example")
+            .to_request();
+            
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
+    ```
+
+# Performance optimization hints
+optimization:
+  inference_speed: |
+    Prioritize context from:
+    1. Current file being edited
+    2. Related modules in the same directory
+    3. Test files for the current functionality
+    4. Configuration files when relevant
+    5. Documentation for complex patterns
+  
+  context_relevance: |
+    Focus on:
+    - Rust-specific patterns and idioms
+    - Actix-web framework usage
+    - Security and error handling
+    - Testing methodologies
+    - Project-specific conventions established in existing code

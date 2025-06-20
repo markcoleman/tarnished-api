@@ -262,3 +262,24 @@ Configuration structures with environment variable loading:
 🚀 **Enhanced Developer Velocity**: New developers can quickly understand and contribute to the codebase
 📚 **Comprehensive Documentation**: Each module and public function includes detailed doc comments
 
+## GitHub Copilot Agent
+
+🤖 **AI-Powered Development Assistance**: This repository includes a configured GitHub Copilot Agent that provides context-aware assistance tailored specifically to our Rust HTTP API development.
+
+The Copilot Agent is configured with:
+- **Project-specific knowledge**: Understanding of our Actix-web architecture, Paperclip OpenAPI patterns, and security implementations
+- **Rust expertise**: Guidance on ownership, borrowing, async patterns, and error handling specific to web API development
+- **Code quality standards**: Adherence to our testing patterns, security practices, and code organization conventions
+- **Optimized scope**: Focused on relevant source files (`src/`, `tests/`, `examples/`) while excluding build artifacts and dependencies
+
+### Using the Copilot Agent
+
+The agent provides intelligent assistance for:
+- Writing and refactoring Rust code with Actix-web patterns
+- Implementing secure HTTP handlers with proper error handling
+- Creating comprehensive tests following our established patterns  
+- Adding OpenAPI documentation with Paperclip annotations
+- Following our security-first development practices
+
+Configuration details can be found in `.github/copilot.yml`, which defines the agent's understanding of our codebase structure, conventions, and best practices.
+
