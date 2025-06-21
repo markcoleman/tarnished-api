@@ -37,11 +37,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy
-
     - name: Cache Cargo registry
       uses: actions/cache@v4
       with:
@@ -56,13 +51,19 @@ jobs:
         path: target
         key: ${{ runner.os }}-cargo-build-codeql-${{ hashFiles('**/Cargo.lock') }}
 
+    - name: Set up Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       env:
         CODEQL_ENABLE_EXPERIMENTAL_FEATURES: true
       with:
         languages: ${{ matrix.language }}
-        queries: security-extended,security-and-quality
+        # Use default queries for Rust experimental analysis to avoid SARIF issues
+        queries: security-and-quality
 
     - name: Build project
       run: cargo build --verbose
