@@ -6,6 +6,7 @@
 pub mod metrics;
 pub mod rate_limit;
 pub mod hmac;
+pub mod resilient_client;
 pub mod security;
 
 pub use metrics::*;
