@@ -68,12 +68,12 @@ pub async fn weather(
         get_weather_by_zip(zip).await?
     } else if let (Some(lat), Some(lon)) = (query.lat, query.lon) {
         // Use coordinates
-        if lat < -90.0 || lat > 90.0 {
+        if !(-90.0..=90.0).contains(&lat) {
             return Err(actix_web::error::ErrorBadRequest(
                 "Latitude must be between -90 and 90",
             ));
         }
-        if lon < -180.0 || lon > 180.0 {
+        if !(-180.0..=180.0).contains(&lon) {
             return Err(actix_web::error::ErrorBadRequest(
                 "Longitude must be between -180 and 180",
             ));
