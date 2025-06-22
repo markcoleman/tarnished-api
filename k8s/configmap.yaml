@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tarnished-api-config
+  labels:
+    app: tarnished-api
+data:
+  # Logging configuration
+  rust-log: "info,auth_audit=info"
+  log-format: "json"
+  
+  # Metrics configuration
+  metrics-enabled: "true"
+  
+  # Rate limiting configuration
+  rate-limit-rpm: "100"
+  rate-limit-period: "60"
+  
+  # Security headers configuration
+  security-csp-enabled: "true"
+  csp-directives: "default-src 'none'; frame-ancestors 'none'"
+  hsts-enabled: "true"
+  hsts-max-age: "31536000"
+  x-frame-options: "DENY"
+  x-content-type-options: "true"
+  x-xss-protection: "true"
+  referrer-policy: "no-referrer"
+  
+  # Authentication configuration
+  auth-max-failures: "5"
+  auth-failure-window: "300"
+  hmac-timestamp-tolerance: "300"
+  hmac-require-signature: "false"
+  
+  # Environment
+  new-relic-environment: "production"
