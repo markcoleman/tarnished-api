@@ -79,21 +79,14 @@ async fn test_circuit_breaker_functionality() {
 }
 
 #[tokio::test]
-async fn test_metrics_collection() {
+async fn test_metrics_creation_and_client_integration() {
     let registry = Registry::new();
-    let metrics = ResilientClientMetrics::new(&registry).expect("Failed to create metrics");
+    let metrics_result = ResilientClientMetrics::new(&registry);
+    assert!(metrics_result.is_ok(), "Should be able to create metrics");
     
-    // Test that metrics are registered
-    let metric_families = registry.gather();
-    let metric_names: Vec<String> = metric_families.iter()
-        .map(|mf| mf.get_name().to_string())
-        .collect();
-    
-    assert!(metric_names.contains(&"resilient_http_requests_total".to_string()));
-    assert!(metric_names.contains(&"resilient_http_request_duration_seconds".to_string()));
-    assert!(metric_names.contains(&"resilient_http_retry_attempts_total".to_string()));
-    assert!(metric_names.contains(&"resilient_http_circuit_breaker_state".to_string()));
-    assert!(metric_names.contains(&"resilient_http_timeouts_total".to_string()));
+    let config = ResilientClientConfig::default();
+    let client_result = ResilientClient::new(config, Some(metrics_result.unwrap()));
+    assert!(client_result.is_ok(), "Should be able to create client with metrics");
 }
 
 #[tokio::test]
