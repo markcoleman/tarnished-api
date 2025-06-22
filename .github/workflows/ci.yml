@@ -349,23 +349,10 @@ jobs:
         with:
           step: "validate_yaml_syntax"
           command: |
-            python3 -c "
-            import yaml
-            import sys
-            import os
-            
-            for file in os.listdir('k8s/'):
-                if file.endswith('.yaml'):
-                    filepath = os.path.join('k8s', file)
-                    try:
-                        with open(filepath, 'r') as f:
-                            yaml.safe_load(f)
-                        print(f'✓ {file} is valid YAML')
-                    except yaml.YAMLError as e:
-                        print(f'✗ {file} has YAML error: {e}')
-                        sys.exit(1)
-            print('All YAML files are valid')
-            "
+            for file in k8s/*.yaml; do
+              python3 -c "import yaml; yaml.safe_load(open('$file', 'r'))" && echo "✓ $(basename $file) is valid YAML" || exit 1
+            done
+            echo "All YAML files are valid"
 
       - name: Validate with kustomize
         uses: ./.github/actions/time-and-report
