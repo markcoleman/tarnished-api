@@ -1,0 +1,84 @@
+name: "CodeQL Analysis"
+
+# DISABLED: This workflow conflicts with GitHub's default CodeQL setup
+# To enable this custom workflow:
+# 1. Go to repository Settings → Code security and analysis
+# 2. Disable "CodeQL analysis" under "Code scanning"
+# 3. Uncomment the triggers below and remove this comment block
+
+# on:
+#   push:
+#     branches: [ main ]
+#     paths-ignore:
+#       - '**/*.md'
+#       - 'CODEOWNERS'
+#       - 'LICENCE'
+#   pull_request:
+#     branches: [ main ]
+#     paths-ignore:
+#       - '**/*.md'
+#       - 'CODEOWNERS'
+#       - 'LICENCE'
+#   schedule:
+#     # Run weekly on Sundays at 3:00 AM UTC
+#     - cron: '0 3 * * 0'
+
+# Temporary trigger to avoid conflicts - only run manually
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze Code
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'rust' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Cache Cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache Cargo build artifacts
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-codeql-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Set up Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      env:
+        CODEQL_ENABLE_EXPERIMENTAL_FEATURES: true
+      with:
+        languages: ${{ matrix.language }}
+        # Use default queries for Rust experimental analysis to avoid SARIF issues
+        queries: security-and-quality
+
+    - name: Build project
+      run: cargo build --verbose
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"

@@ -29,6 +29,9 @@ Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix
 - **Continuous Integration:**  
   GitHub Actions is configured to run tests, build the project, and run lint checks (using Clippy) on pull requests and pushes to the main branch, providing early and fast feedback.
 
+- **Code Security Scanning:**  
+  CodeQL analysis runs on every push and pull request to the main branch, plus weekly scheduled scans, to detect potential security vulnerabilities and code quality issues in the Rust codebase.
+
 - **Dependabot:**  
   Dependabot is configured to monitor Cargo dependencies and devcontainer configurations, keeping the project up-to-date with minimal effort.
 
