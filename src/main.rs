@@ -94,7 +94,10 @@ async fn main() -> std::io::Result<()> {
     // Initialize New Relic tracing first if enabled
     if newrelic_config.enabled {
         if let Err(e) = init_tracing(&newrelic_config) {
-            eprintln!("Failed to initialize New Relic tracing: {}", e);
+            tracing::error!(
+                error = %e,
+                "Failed to initialize New Relic tracing"
+            );
         }
     }
 
@@ -153,13 +156,23 @@ async fn main() -> std::io::Result<()> {
         git_ref = %std::env::var("GITHUB_REF").unwrap_or_else(|_| "unknown".to_string()),
         environment = %newrelic_config.environment,
     );
-    println!("Server running at http://127.0.0.1:8080");
-    println!("Authentication endpoints:");
-    println!("  POST /auth/login - User login");
-    println!("  POST /auth/validate - Token validation");
-    println!("Set LOG_FORMAT=json for structured JSON logging");
-    println!("Set RUST_LOG=debug,auth_audit=info for verbose logging");
-    println!("Set NEW_RELIC_LICENSE_KEY to enable New Relic integration");
+    tracing::info!(
+        message = "Server running at http://127.0.0.1:8080",
+        bind_address = "127.0.0.1:8080",
+        "Server startup complete"
+    );
+    tracing::info!(
+        message = "Authentication endpoints available",
+        endpoints = "POST /auth/login, POST /auth/validate",
+        "Authentication configuration"
+    );
+    tracing::info!(
+        message = "Configuration options",
+        log_format_json = "Set LOG_FORMAT=json for structured JSON logging",
+        verbose_logging = "Set RUST_LOG=debug,auth_audit=info for verbose logging", 
+        newrelic_integration = "Set NEW_RELIC_LICENSE_KEY to enable New Relic integration",
+        "Server configuration help"
+    );
 
     HttpServer::new(|| {
         let config = RateLimitConfig::from_env();
