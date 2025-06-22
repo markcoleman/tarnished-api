@@ -9,6 +9,9 @@ Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix
 - **Health Check Endpoint:**  
   The `/api/health` endpoint returns a JSON object indicating the current status of the API (e.g., `{ "status": "healthy" }`). The response is defined using a `HealthResponse` struct and documented via Paperclip annotations.
 
+- **Weather Information Endpoint:**  
+  The `/api/weather` endpoint returns current weather information with emoji representation for a given location. Accepts either ZIP code (e.g., `?zip=90210`) or latitude/longitude coordinates (e.g., `?lat=34.05&lon=-118.25`). Returns JSON with location name, weather condition, and corresponding emoji (☀️, 🌧️, ❄️, 🌩️, etc.).
+
 - **Security Headers:**  
   All HTTP responses include modern security headers to protect against common vulnerabilities:
   - `X-Content-Type-Options: nosniff` - Prevents MIME type sniffing
@@ -58,6 +61,10 @@ The API can be configured using environment variables:
 - `NEW_RELIC_ENVIRONMENT` (default: `development`) - Environment name for New Relic
 - `NEW_RELIC_LOG_ENDPOINT` (default: `https://log-api.newrelic.com/log/v1`) - New Relic logs endpoint
 
+### Weather API Integration
+- `OPENWEATHER_API_KEY` - **Required** - Your OpenWeatherMap API key for weather data (get one free at https://openweathermap.org/api)
+- `OPENWEATHER_BASE_URL` (default: `https://api.openweathermap.org/data/2.5`) - OpenWeatherMap API base URL
+
 ## Authentication & Audit Logging Usage
 
 The API includes comprehensive audit logging for authentication events. Here's how to use it:
@@ -88,6 +95,43 @@ curl -X POST http://localhost:8080/auth/validate \
   -H "Content-Type: application/json" \
   -d '{"token": "token_12345"}'
 ```
+
+### Weather Endpoint Usage
+
+The weather endpoint provides current weather information with emoji representations:
+
+```bash
+# Get weather by ZIP code
+curl "http://localhost:8080/api/weather?zip=90210"
+
+# Response:
+# {
+#   "location": "Beverly Hills, US",
+#   "weather": "Clear",
+#   "emoji": "☀️"
+# }
+
+# Get weather by coordinates
+curl "http://localhost:8080/api/weather?lat=34.05&lon=-118.25"
+
+# Response:
+# {
+#   "location": "Los Angeles, US", 
+#   "weather": "Rain",
+#   "emoji": "🌧️"
+# }
+```
+
+**Supported Weather Emojis:**
+- ☀️ Clear skies
+- ☁️ Cloudy conditions  
+- 🌧️ Rain
+- 🌦️ Light rain/drizzle
+- 🌩️ Thunderstorms
+- ❄️ Snow
+- 🌫️ Fog, mist, or haze
+- 🌬️ Windy conditions
+- 🌪️ Severe weather (tornado)
 
 ### Audit Log Format
 

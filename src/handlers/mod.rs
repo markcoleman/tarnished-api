@@ -8,9 +8,11 @@ pub mod version;
 pub mod metrics;
 pub mod auth;
 pub mod openapi;
+pub mod weather;
 
 pub use health::*;
 pub use version::*;
 pub use metrics::*;
 pub use auth::*;
 pub use openapi::*;
+pub use weather::*;
