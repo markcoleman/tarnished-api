@@ -122,14 +122,11 @@ impl SimpleCircuitBreaker {
     pub fn on_success(&mut self) {
         self.failure_count = 0;
         
-        match self.state {
-            CircuitBreakerState::HalfOpen => {
-                self.success_count += 1;
-                if self.success_count >= self.config.success_threshold {
-                    self.state = CircuitBreakerState::Closed;
-                }
+        if self.state == CircuitBreakerState::HalfOpen {
+            self.success_count += 1;
+            if self.success_count >= self.config.success_threshold {
+                self.state = CircuitBreakerState::Closed;
             }
-            _ => {}
         }
     }
 
