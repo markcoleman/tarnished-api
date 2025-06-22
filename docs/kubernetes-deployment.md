@@ -19,6 +19,9 @@ kubectl apply -f ./k8s/
 
 # Or use kustomize
 kubectl apply -k ./k8s/
+
+# Or use the provided script for local testing
+./scripts/deploy-local.sh
 ```
 
 ### 2. Verify deployment
