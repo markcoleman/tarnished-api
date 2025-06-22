@@ -123,7 +123,13 @@ mod tests {
             env::remove_var("RESILIENT_CLIENT_CONNECT_TIMEOUT");
             env::remove_var("RESILIENT_CLIENT_DETAILED_LOGGING");
             env::remove_var("RESILIENT_CLIENT_RETRY_MAX_ATTEMPTS");
+            env::remove_var("RESILIENT_CLIENT_RETRY_INITIAL_DELAY_MS");
+            env::remove_var("RESILIENT_CLIENT_RETRY_MAX_DELAY_MS");
+            env::remove_var("RESILIENT_CLIENT_RETRY_JITTER_FACTOR");
+            env::remove_var("RESILIENT_CLIENT_RETRY_ON_STATUS");
             env::remove_var("RESILIENT_CLIENT_CB_FAILURE_THRESHOLD");
+            env::remove_var("RESILIENT_CLIENT_CB_SUCCESS_THRESHOLD");
+            env::remove_var("RESILIENT_CLIENT_CB_TIMEOUT_SECONDS");
         }
         
         let config = ResilientClientConfig::from_env();

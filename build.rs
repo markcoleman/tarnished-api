@@ -4,7 +4,7 @@ use std::process::Command;
 fn main() {
     // Check if we're in a git repository
     let is_git_available = Command::new("git")
-        .args(&["rev-parse", "--git-dir"])
+        .args(["rev-parse", "--git-dir"])
         .output()
         .map(|output| output.status.success())
         .unwrap_or(false);
