@@ -9,7 +9,7 @@ use paperclip::actix::{
 use tarnished_api::{
     AppMetrics, MetricsConfig, RateLimitConfig, RequestIdMiddleware, SecurityHeaders,
     SecurityHeadersConfig, SimpleRateLimiter, SuspiciousActivityTracker, create_openapi_spec,
-    get_metrics, health, login, validate_token, version,
+    get_metrics, health, login, validate_token, version, weather,
     newrelic::{NewRelicConfig, init_tracing, shutdown_tracing},
 };
 
@@ -194,6 +194,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::resource("/").route(web::get().to(index)))
             .service(web::resource("/api/health").route(web::get().to(health)))
             .service(web::resource("/api/version").route(web::get().to(version)))
+            .service(web::resource("/api/weather").route(web::get().to(weather)))
             .service(web::resource("/api/metrics").route(web::get().to(get_metrics)))
             .service(web::resource("/auth/login").route(web::post().to(login)))
             .service(web::resource("/auth/validate").route(web::post().to(validate_token)))
@@ -212,7 +213,7 @@ async fn main() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use actix_web::{App, test, web};
-    use tarnished_api::{health, version};
+    use tarnished_api::{health, version, weather};
 
     #[actix_web::test]
     async fn test_health() {
@@ -251,5 +252,21 @@ mod tests {
         assert!(body_str.contains("version"));
         assert!(body_str.contains("commit"));
         assert!(body_str.contains("build_time"));
+    }
+
+    #[actix_web::test]
+    async fn test_weather_endpoint_validation() {
+        // Create a test app with the /api/weather route.
+        let app = test::init_service(App::new().route("/api/weather", web::get().to(weather))).await;
+
+        // Test missing parameters - should return 400
+        let req = test::TestRequest::get().uri("/api/weather").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400);
+
+        // Test invalid latitude - should return 400
+        let req = test::TestRequest::get().uri("/api/weather?lat=100&lon=0").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400);
     }
 }
