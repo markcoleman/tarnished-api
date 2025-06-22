@@ -1,21 +1,31 @@
 name: "CodeQL Analysis"
 
+# DISABLED: This workflow conflicts with GitHub's default CodeQL setup
+# To enable this custom workflow:
+# 1. Go to repository Settings → Code security and analysis
+# 2. Disable "CodeQL analysis" under "Code scanning"
+# 3. Uncomment the triggers below and remove this comment block
+
+# on:
+#   push:
+#     branches: [ main ]
+#     paths-ignore:
+#       - '**/*.md'
+#       - 'CODEOWNERS'
+#       - 'LICENCE'
+#   pull_request:
+#     branches: [ main ]
+#     paths-ignore:
+#       - '**/*.md'
+#       - 'CODEOWNERS'
+#       - 'LICENCE'
+#   schedule:
+#     # Run weekly on Sundays at 3:00 AM UTC
+#     - cron: '0 3 * * 0'
+
+# Temporary trigger to avoid conflicts - only run manually
 on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - '**/*.md'
-      - 'CODEOWNERS'
-      - 'LICENCE'
-  pull_request:
-    branches: [ main ]
-    paths-ignore:
-      - '**/*.md'
-      - 'CODEOWNERS'
-      - 'LICENCE'
-  schedule:
-    # Run weekly on Sundays at 3:00 AM UTC
-    - cron: '0 3 * * 0'
+  workflow_dispatch:
 
 permissions:
   contents: read
