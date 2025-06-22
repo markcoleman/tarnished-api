@@ -362,7 +362,13 @@ jobs:
         uses: ./.github/actions/time-and-report
         with:
           step: "validate_k8s_manifests"
-          command: "kubectl apply --dry-run=client --validate=false -f k8s/ && echo 'Kubernetes manifest validation successful'"
+          command: |
+            # Install kubeconform for offline validation
+            curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+            chmod +x kubeconform
+            sudo mv kubeconform /usr/local/bin/
+            # Validate Kubernetes manifests (exclude kustomization files)
+            kubeconform -summary -verbose -ignore-missing-schemas -skip Kustomization k8s/*.yaml
 
   deploy-validation:
     name: Deployment Validation Test
