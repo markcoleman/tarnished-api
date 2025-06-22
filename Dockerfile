@@ -3,6 +3,9 @@
 # ----------------------------------------
     FROM rust:1.86-slim-bookworm AS builder
 
+    # Install git for build script compatibility
+    RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
     # Set the working directory inside the container
     WORKDIR /app
     
