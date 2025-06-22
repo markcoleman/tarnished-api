@@ -5,7 +5,6 @@
 
 use tarnished_api::{ResilientClient, ResilientClientConfig, ResilientClientMetrics, ResilientClientError};
 use prometheus::Registry;
-use tokio;
 use std::time::Duration;
 
 #[tokio::test]
