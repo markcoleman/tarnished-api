@@ -350,11 +350,7 @@ jobs:
           step: "validate_yaml_syntax"
           command: |
             pip3 install --quiet PyYAML
-            for file in k8s/*.yaml; do
-              echo "Validating $file..."
-              python3 -c "import yaml; yaml.safe_load(open('$file', 'r')); print('✓ $file is valid YAML')"
-            done
-            echo "All YAML files are syntactically valid"
+            ./scripts/validate-yaml.py
 
       - name: Validate with kustomize
         uses: ./.github/actions/time-and-report
