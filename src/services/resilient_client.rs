@@ -364,7 +364,7 @@ impl ResilientClient {
             .take(self.config.retry.max_attempts);
 
         let url = url.to_string();
-        let json_value = json.map(|j| serde_json::to_value(j)).transpose()
+        let json_value = json.map(serde_json::to_value).transpose()
             .map_err(|e| ResilientClientError::SerializationError(e.to_string()))?;
         
         let client = self.client.clone();
