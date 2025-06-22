@@ -113,9 +113,15 @@ impl CircuitBreakerConfig {
 mod tests {
     use super::*;
     use std::env;
+    use std::sync::Mutex;
+
+    // Mutex to synchronize tests that modify environment variables
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_resilient_client_config_defaults() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+        
         // Clear any existing environment variables to ensure clean test
         unsafe {
             env::remove_var("RESILIENT_CLIENT_READ_TIMEOUT");
@@ -143,6 +149,8 @@ mod tests {
 
     #[test]
     fn test_resilient_client_config_from_env() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+        
         unsafe {
             env::set_var("RESILIENT_CLIENT_READ_TIMEOUT", "2");
             env::set_var("RESILIENT_CLIENT_WRITE_TIMEOUT", "10");
@@ -173,6 +181,8 @@ mod tests {
 
     #[test]
     fn test_retry_status_codes_parsing() {
+        let _lock = ENV_MUTEX.lock().unwrap();
+        
         unsafe {
             env::set_var("RESILIENT_CLIENT_RETRY_ON_STATUS", "500,502,503");
         }
