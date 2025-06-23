@@ -330,3 +330,115 @@ jobs:
         with:
           step: "verify_sbom_attestation"
           command: "cosign verify-attestation --type=cyclonedx --certificate-identity-regexp='https://github.com/markcoleman/tarnished-api/.*' --certificate-oidc-issuer=https://token.actions.githubusercontent.com ghcr.io/markcoleman/tarnished-api:latest"
+
+  kubernetes-validation:
+    name: Validate Kubernetes Manifests
+    runs-on: ubuntu-latest
+    needs: [build, test, clippy]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.33.1'
+
+      - name: Validate YAML syntax
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "validate_yaml_syntax"
+          command: |
+            pip3 install --quiet PyYAML
+            ./scripts/validate-yaml.py
+
+      - name: Validate with kustomize
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "validate_kustomize"
+          command: "kustomize build k8s/ > /dev/null && echo 'Kustomize validation successful'"
+
+      - name: Validate Kubernetes manifests
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "validate_k8s_manifests"
+          command: |
+            # Install kubeconform for offline validation
+            curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+            chmod +x kubeconform
+            sudo mv kubeconform /usr/local/bin/
+            # Validate Kubernetes manifests (exclude kustomization files)
+            kubeconform -summary -verbose -ignore-missing-schemas -skip Kustomization k8s/*.yaml
+
+  deploy-validation:
+    name: Deployment Validation Test
+    runs-on: ubuntu-latest
+    needs: [docker, kubernetes-validation]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.33.1'
+
+      - name: Setup kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: tarnished-api-test
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+            - role: control-plane
+              kubeaddrConfigPatchesJSON6902:
+              - group: kubeadm.k8s.io
+                version: v1beta3
+                kind: ClusterConfiguration
+                patch: |
+                  - op: add
+                    path: /apiServer/certSANs/-
+                    value: localhost
+
+      - name: Wait for cluster ready
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "wait_for_cluster"
+          command: "kubectl wait --for=condition=Ready nodes --all --timeout=60s"
+
+      - name: Load Docker image into kind
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "load_docker_image"
+          command: "kind load docker-image ghcr.io/markcoleman/tarnished-api:latest --name tarnished-api-test"
+
+      - name: Deploy to kind cluster
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "deploy_to_kind"
+          command: "kubectl apply -f k8s/configmap.yaml -f k8s/secret.yaml -f k8s/deployment.yaml -f k8s/service.yaml"
+
+      - name: Wait for deployment rollout
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "wait_for_rollout"
+          command: "kubectl rollout status deployment/tarnished-api --timeout=120s"
+
+      - name: Verify service is reachable
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "verify_service_reachable"
+          command: |
+            kubectl get pods -l app=tarnished-api
+            kubectl get svc tarnished-api-service
+            # Port forward in background and test
+            kubectl port-forward svc/tarnished-api-service 8080:80 &
+            sleep 10
+            curl -f http://localhost:8080/api/health || exit 1
+            echo "Health check successful"
+
+      - name: Cleanup test cluster
+        if: always()
+        run: kind delete cluster --name tarnished-api-test

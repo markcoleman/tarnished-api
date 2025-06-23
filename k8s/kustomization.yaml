@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: tarnished-api
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - configmap.yaml
+  - secret.yaml
+  - ingress.yaml
+
+labels:
+  - pairs:
+      app: tarnished-api
+      managed-by: kustomize
+
+images:
+  - name: ghcr.io/markcoleman/tarnished-api
+    newTag: latest
+
+replicas:
+  - name: tarnished-api
+    count: 2
+
+namespace: default

@@ -1,0 +1,194 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tarnished-api
+  labels:
+    app: tarnished-api
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tarnished-api
+  template:
+    metadata:
+      labels:
+        app: tarnished-api
+        version: v1
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/markcoleman/tarnished-api:latest
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            - name: RUST_LOG
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: rust-log
+                  optional: true
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: log-format
+                  optional: true
+            - name: METRICS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: metrics-enabled
+                  optional: true
+            - name: RATE_LIMIT_RPM
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: rate-limit-rpm
+                  optional: true
+            - name: RATE_LIMIT_PERIOD
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: rate-limit-period
+                  optional: true
+            - name: SECURITY_CSP_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: security-csp-enabled
+                  optional: true
+            - name: CSP_DIRECTIVES
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: csp-directives
+                  optional: true
+            - name: HSTS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: hsts-enabled
+                  optional: true
+            - name: HSTS_MAX_AGE
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: hsts-max-age
+                  optional: true
+            - name: X_FRAME_OPTIONS
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: x-frame-options
+                  optional: true
+            - name: X_CONTENT_TYPE_OPTIONS
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: x-content-type-options
+                  optional: true
+            - name: X_XSS_PROTECTION
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: x-xss-protection
+                  optional: true
+            - name: REFERRER_POLICY
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: referrer-policy
+                  optional: true
+            - name: AUTH_MAX_FAILURES
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: auth-max-failures
+                  optional: true
+            - name: AUTH_FAILURE_WINDOW
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: auth-failure-window
+                  optional: true
+            - name: HMAC_TIMESTAMP_TOLERANCE
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: hmac-timestamp-tolerance
+                  optional: true
+            - name: HMAC_REQUIRE_SIGNATURE
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: hmac-require-signature
+                  optional: true
+            - name: NEW_RELIC_ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: tarnished-api-config
+                  key: new-relic-environment
+                  optional: true
+            - name: HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: tarnished-api-secrets
+                  key: hmac-secret
+                  optional: true
+            - name: NEW_RELIC_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tarnished-api-secrets
+                  key: new-relic-license-key
+                  optional: true
+            - name: NEW_RELIC_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tarnished-api-secrets
+                  key: new-relic-account-id
+                  optional: true
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+              httpHeaders:
+                - name: Accept
+                  value: application/json
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+              httpHeaders:
+                - name: Accept
+                  value: application/json
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        fsGroup: 1000
+      restartPolicy: Always
