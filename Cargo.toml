@@ -27,7 +27,7 @@ tokio-retry = "0.3"
 # URL parsing
 url = "2.0"
 # Error handling
-thiserror = "1.0"
+thiserror = "2.0"
 
 [build-dependencies]
 vergen = { version = "8", features = ["build", "git", "gitcl"] }
