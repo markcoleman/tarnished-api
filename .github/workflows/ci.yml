@@ -384,23 +384,28 @@ jobs:
         with:
           version: 'v1.33.1'
 
+      - name: Create kind config file
+        run: |
+          cat > kind-config.yaml << 'EOF'
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            kubeaddrConfigPatchesJSON6902:
+            - group: kubeadm.k8s.io
+              version: v1beta3
+              kind: ClusterConfiguration
+              patch: |
+                - op: add
+                  path: /apiServer/certSANs/-
+                  value: localhost
+          EOF
+
       - name: Setup kind cluster
         uses: helm/kind-action@v1
         with:
           cluster_name: tarnished-api-test
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-            - role: control-plane
-              kubeaddrConfigPatchesJSON6902:
-              - group: kubeadm.k8s.io
-                version: v1beta3
-                kind: ClusterConfiguration
-                patch: |
-                  - op: add
-                    path: /apiServer/certSANs/-
-                    value: localhost
+          config: kind-config.yaml
 
       - name: Wait for cluster ready
         uses: ./.github/actions/time-and-report
