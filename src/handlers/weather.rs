@@ -2,12 +2,13 @@
 
 use crate::{
     config::HmacConfig,
-    models::{WeatherQuery, WeatherResponse},
+    models::{WeatherQuery, WeatherResponse, McpResponse},
     services::{
         auth::hmac_signature_middleware, 
         rate_limit::{rate_limit_middleware, SimpleRateLimiter},
         weather::WeatherService,
     },
+    middleware::extract_mcp_context,
 };
 use actix_web::{web, Error, HttpRequest, Result};
 use paperclip::actix::api_v2_operation;
@@ -16,9 +17,10 @@ use paperclip::actix::api_v2_operation;
 /// 
 /// Returns current weather information as an emoji for a given location.
 /// Accepts either ZIP code or latitude/longitude coordinates.
+/// For MCP-aware clients, the response will include context metadata.
 #[api_v2_operation(
     summary = "Weather Information Endpoint",
-    description = "Returns current weather information with emoji representation for a given location. Accepts either ZIP code (e.g., ?zip=90210) or latitude/longitude coordinates (e.g., ?lat=34.05&lon=-118.25).",
+    description = "Returns current weather information with emoji representation for a given location. Accepts either ZIP code (e.g., ?zip=90210) or latitude/longitude coordinates (e.g., ?lat=34.05&lon=-118.25). MCP-aware clients receive enriched responses with context metadata.",
     tags("Weather"),
     parameters(
         ("zip" = Option<String>, Query, description = "ZIP code (e.g., 90210)"),
@@ -26,7 +28,7 @@ use paperclip::actix::api_v2_operation;
         ("lon" = Option<f64>, Query, description = "Longitude coordinate"),
     ),
     responses(
-        (status = 200, description = "Successful response", body = WeatherResponse),
+        (status = 200, description = "Successful response", body = McpResponse<WeatherResponse>),
         (status = 400, description = "Bad Request - Invalid or missing location parameters"),
         (status = 401, description = "Unauthorized - Invalid or missing HMAC signature"),
         (status = 429, description = "Too Many Requests"),
@@ -36,7 +38,7 @@ use paperclip::actix::api_v2_operation;
 pub async fn weather(
     req: HttpRequest,
     query: web::Query<WeatherQuery>,
-) -> Result<web::Json<WeatherResponse>, Error> {
+) -> Result<web::Json<McpResponse<WeatherResponse>>, Error> {
     // Check if HMAC config is available and validate signature
     if let Some(hmac_config) = req.app_data::<web::Data<HmacConfig>>() {
         // For GET requests, the body is typically empty
@@ -85,10 +87,23 @@ pub async fn weather(
         ));
     };
 
-    let response = WeatherResponse {
+    let weather_data = WeatherResponse {
         location,
         weather: weather_condition,
         emoji,
+    };
+
+    // Check if this is an MCP-aware request
+    let response = if let Some(context) = extract_mcp_context(&req) {
+        tracing::debug!(
+            trace_id = %context.trace_id,
+            location = %weather_data.location,
+            "Returning MCP-enhanced weather response"
+        );
+        McpResponse::with_context(weather_data, context)
+    } else {
+        tracing::trace!("Returning standard weather response");
+        McpResponse::new(weather_data)
     };
 
     Ok(web::Json(response))

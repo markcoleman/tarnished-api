@@ -5,8 +5,8 @@ use actix_web::App;
 use crate::{
     config::{RateLimitConfig, SecurityHeadersConfig, MetricsConfig, HmacConfig},
     services::{rate_limit::SimpleRateLimiter, AppMetrics, SuspiciousActivityTracker},
-    middleware::{SecurityHeaders, RequestIdMiddleware, MetricsMiddleware},
-    handlers::{health, version, get_metrics, login, validate_token},
+    middleware::{SecurityHeaders, RequestIdMiddleware, MetricsMiddleware, McpMiddleware},
+    handlers::{health, version, get_metrics, login, validate_token, weather},
 };
 use paperclip::actix::{OpenApiExt, web};
 
@@ -20,7 +20,33 @@ pub fn create_openapi_spec() -> DefaultApiRaw {
             title: "Tarnished API".into(),
             version: "1.0.0".into(),
             description: Some(
-                "A sample API built with Actix and Paperclip\n\n\
+                "A sample API built with Actix and Paperclip with support for both REST and Model Context Protocol (MCP)\n\n\
+                ## Model Context Protocol (MCP) Support\n\
+                This API supports the Model Context Protocol for context-aware interactions while maintaining backward compatibility with standard REST clients.\n\
+                \n\
+                **MCP Headers:**\n\
+                - `X-MCP-Context`: Indicates an MCP-aware request\n\
+                - `X-Client`: Client identifier for MCP requests\n\
+                - `X-Trace-ID`: Trace identifier for request tracking\n\
+                - `X-Correlation-ID`: Optional correlation ID for linking related requests\n\
+                \n\
+                **MCP Response Format:**\n\
+                MCP-aware requests receive enriched responses with context metadata:\n\
+                ```json\n\
+                {\n\
+                  \"data\": { /* original response data */ },\n\
+                  \"context\": {\n\
+                    \"trace_id\": \"uuid\",\n\
+                    \"model_version\": \"0.1.0\",\n\
+                    \"timestamp\": \"2024-01-01T00:00:00Z\",\n\
+                    \"correlation_id\": \"optional\",\n\
+                    \"client_id\": \"optional\"\n\
+                  }\n\
+                }\n\
+                ```\n\
+                \n\
+                Standard REST clients receive the original response format without the context wrapper.\n\
+                \n\
                 ## HMAC Signature Authentication\n\
                 This API supports optional HMAC-SHA256 signature validation for enhanced security.\n\
                 \n\
@@ -57,6 +83,7 @@ pub fn create_openapi_spec() -> DefaultApiRaw {
 /// - Security headers
 /// - Metrics collection
 /// - Authentication endpoints
+/// - MCP (Model Context Protocol) support
 /// 
 /// This can be used both for testing and as a base for the main application.
 pub fn create_base_app() -> App<
@@ -80,6 +107,7 @@ pub fn create_base_app() -> App<
         .wrap(SecurityHeaders::new(security_config))
         .wrap(RequestIdMiddleware)
         .wrap(MetricsMiddleware)
+        .wrap(McpMiddleware) // Add MCP middleware before API spec
         .wrap_api_with_spec(create_openapi_spec())
         .app_data(web::Data::new(config))
         .app_data(web::Data::new(limiter))
@@ -89,6 +117,7 @@ pub fn create_base_app() -> App<
         .app_data(web::Data::new(activity_tracker))
         .service(web::resource("/api/health").route(web::get().to(health)))
         .service(web::resource("/api/version").route(web::get().to(version)))
+        .service(web::resource("/api/weather").route(web::get().to(weather)))
         .service(web::resource("/api/metrics").route(web::get().to(get_metrics)))
         .service(web::resource("/auth/login").route(web::post().to(login)))
         .service(web::resource("/auth/validate").route(web::post().to(validate_token)))
