@@ -6,7 +6,9 @@
 pub mod security;
 pub mod request_id;
 pub mod metrics;
+pub mod mcp;
 
 pub use security::*;
 pub use request_id::*;
 pub use metrics::*;
+pub use mcp::*;

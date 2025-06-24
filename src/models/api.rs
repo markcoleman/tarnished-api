@@ -4,13 +4,13 @@ use paperclip::actix::Apiv2Schema;
 use serde::{Deserialize, Serialize};
 
 /// Response model for the health check endpoint
-#[derive(Serialize, Deserialize, Apiv2Schema)]
+#[derive(Clone, Serialize, Deserialize, Apiv2Schema)]
 pub struct HealthResponse {
     pub status: String,
 }
 
 /// Response model for the version information endpoint
-#[derive(Serialize, Deserialize, Apiv2Schema)]
+#[derive(Clone, Serialize, Deserialize, Apiv2Schema)]
 pub struct VersionResponse {
     pub version: String,
     pub commit: String,
@@ -18,7 +18,7 @@ pub struct VersionResponse {
 }
 
 /// Request query parameters for the weather endpoint
-#[derive(Serialize, Deserialize, Apiv2Schema)]
+#[derive(Clone, Serialize, Deserialize, Apiv2Schema)]
 pub struct WeatherQuery {
     /// ZIP code (e.g., "90210")
     pub zip: Option<String>,
@@ -29,7 +29,7 @@ pub struct WeatherQuery {
 }
 
 /// Response model for the weather endpoint
-#[derive(Serialize, Deserialize, Apiv2Schema)]
+#[derive(Clone, Serialize, Deserialize, Apiv2Schema)]
 pub struct WeatherResponse {
     /// Location name (e.g., "Los Angeles, CA")
     pub location: String,

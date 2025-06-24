@@ -44,8 +44,8 @@ pub mod newrelic;
 // Re-export commonly used types and functions for convenience
 pub use config::{MetricsConfig, RateLimitConfig, HmacConfig, SecurityHeadersConfig};
 pub use handlers::{health, version, get_metrics, login, validate_token, weather, create_openapi_spec, create_base_app};
-pub use middleware::{SecurityHeaders, RequestIdMiddleware, MetricsMiddleware, metrics_middleware};
-pub use models::{HealthResponse, VersionResponse, WeatherQuery, WeatherResponse, LoginRequest, LoginResponse, TokenValidationRequest, TokenValidationResponse, AuthAuditEvent, AuthEventType, AuthEventOutcome};
+pub use middleware::{SecurityHeaders, RequestIdMiddleware, MetricsMiddleware, metrics_middleware, McpMiddleware, extract_mcp_context};
+pub use models::{HealthResponse, VersionResponse, WeatherQuery, WeatherResponse, LoginRequest, LoginResponse, TokenValidationRequest, TokenValidationResponse, AuthAuditEvent, AuthEventType, AuthEventOutcome, ContextMetadata, McpResponse, ToMcpResponse};
 pub use services::{AppMetrics, SimpleRateLimiter, SuspiciousActivityTracker, WeatherService, rate_limit_middleware, hmac_signature_middleware, add_response_signature, ResilientClient, ResilientClientConfig, ResilientClientMetrics, ResilientClientError};
 pub use utils::{extract_client_ip, extract_user_agent, extract_route_pattern};
 

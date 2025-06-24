@@ -2,8 +2,9 @@
 
 use crate::{
     config::HmacConfig,
-    models::VersionResponse,
+    models::{VersionResponse, McpResponse},
     services::{auth::hmac_signature_middleware, rate_limit::{rate_limit_middleware, SimpleRateLimiter}},
+    middleware::extract_mcp_context,
 };
 use actix_web::{web, Error, HttpRequest, Result};
 use paperclip::actix::api_v2_operation;
@@ -12,17 +13,18 @@ use paperclip::actix::api_v2_operation;
 /// 
 /// Returns the current API version, commit hash, and build time.
 /// This endpoint includes rate limiting and optional HMAC signature validation.
+/// For MCP-aware clients, the response will include context metadata.
 #[api_v2_operation(
     summary = "Version Information Endpoint",
-    description = "Returns the current API version, commit hash, and build time.",
+    description = "Returns the current API version, commit hash, and build time. MCP-aware clients receive enriched responses with context metadata.",
     tags("Version"),
     responses(
-        (status = 200, description = "Successful response", body = VersionResponse),
+        (status = 200, description = "Successful response", body = McpResponse<VersionResponse>),
         (status = 401, description = "Unauthorized - Invalid or missing HMAC signature"),
         (status = 429, description = "Too Many Requests")
     )
 )]
-pub async fn version(req: HttpRequest) -> Result<web::Json<VersionResponse>, Error> {
+pub async fn version(req: HttpRequest) -> Result<web::Json<McpResponse<VersionResponse>>, Error> {
     // Check if HMAC config is available and validate signature
     if let Some(hmac_config) = req.app_data::<web::Data<HmacConfig>>() {
         // For GET requests, the body is typically empty
@@ -43,10 +45,22 @@ pub async fn version(req: HttpRequest) -> Result<web::Json<VersionResponse>, Err
         }
     }
 
-    let response = VersionResponse {
+    let version_data = VersionResponse {
         version: env!("CARGO_PKG_VERSION").to_string(),
         commit: env!("VERGEN_GIT_SHA").to_string(),
         build_time: env!("VERGEN_BUILD_TIMESTAMP").to_string(),
+    };
+
+    // Check if this is an MCP-aware request
+    let response = if let Some(context) = extract_mcp_context(&req) {
+        tracing::debug!(
+            trace_id = %context.trace_id,
+            "Returning MCP-enhanced version response"
+        );
+        McpResponse::with_context(version_data, context)
+    } else {
+        tracing::trace!("Returning standard version response");
+        McpResponse::new(version_data)
     };
 
     Ok(web::Json(response))

@@ -2,8 +2,9 @@
 
 use crate::{
     config::HmacConfig,
-    models::HealthResponse,
+    models::{HealthResponse, McpResponse},
     services::auth::hmac_signature_middleware,
+    middleware::extract_mcp_context,
 };
 use actix_web::{web, Error, HttpRequest, Result};
 use paperclip::actix::api_v2_operation;
@@ -12,16 +13,18 @@ use paperclip::actix::api_v2_operation;
 /// 
 /// Returns the current health status of the API. This endpoint can be used
 /// by load balancers, monitoring systems, and health check probes.
+/// 
+/// For MCP-aware clients, the response will include context metadata.
 #[api_v2_operation(
     summary = "Health Check Endpoint",
-    description = "Returns the current health status of the API in JSON format.",
+    description = "Returns the current health status of the API in JSON format. MCP-aware clients receive enriched responses with context metadata.",
     tags("Health"),
     responses(
-        (status = 200, description = "Successful response", body = HealthResponse),
+        (status = 200, description = "Successful response", body = McpResponse<HealthResponse>),
         (status = 401, description = "Unauthorized - Invalid or missing HMAC signature")
     )
 )]
-pub async fn health(req: HttpRequest) -> Result<web::Json<HealthResponse>, Error> {
+pub async fn health(req: HttpRequest) -> Result<web::Json<McpResponse<HealthResponse>>, Error> {
     // Check if HMAC config is available and validate signature
     if let Some(hmac_config) = req.app_data::<web::Data<HmacConfig>>() {
         // For GET requests, the body is typically empty
@@ -32,8 +35,20 @@ pub async fn health(req: HttpRequest) -> Result<web::Json<HealthResponse>, Error
         }
     }
 
-    let response = HealthResponse {
+    let health_data = HealthResponse {
         status: "healthy".to_string(),
+    };
+
+    // Check if this is an MCP-aware request
+    let response = if let Some(context) = extract_mcp_context(&req) {
+        tracing::debug!(
+            trace_id = %context.trace_id,
+            "Returning MCP-enhanced health response"
+        );
+        McpResponse::with_context(health_data, context)
+    } else {
+        tracing::trace!("Returning standard health response");
+        McpResponse::new(health_data)
     };
 
     Ok(web::Json(response))
