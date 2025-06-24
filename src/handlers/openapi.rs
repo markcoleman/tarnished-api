@@ -6,7 +6,7 @@ use crate::{
     config::{RateLimitConfig, SecurityHeadersConfig, MetricsConfig, HmacConfig},
     services::{rate_limit::SimpleRateLimiter, AppMetrics, SuspiciousActivityTracker},
     middleware::{SecurityHeaders, RequestIdMiddleware, MetricsMiddleware, McpMiddleware},
-    handlers::{health, version, get_metrics, login, validate_token},
+    handlers::{health, version, get_metrics, login, validate_token, weather},
 };
 use paperclip::actix::{OpenApiExt, web};
 
@@ -117,6 +117,7 @@ pub fn create_base_app() -> App<
         .app_data(web::Data::new(activity_tracker))
         .service(web::resource("/api/health").route(web::get().to(health)))
         .service(web::resource("/api/version").route(web::get().to(version)))
+        .service(web::resource("/api/weather").route(web::get().to(weather)))
         .service(web::resource("/api/metrics").route(web::get().to(get_metrics)))
         .service(web::resource("/auth/login").route(web::post().to(login)))
         .service(web::resource("/auth/validate").route(web::post().to(validate_token)))
