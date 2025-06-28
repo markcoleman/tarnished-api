@@ -89,6 +89,12 @@ jobs:
         with:
           components: clippy, rustfmt
 
+      - name: Install cargo-llvm-cov
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "install_cargo_llvm_cov"
+          command: "cargo install cargo-llvm-cov"
+
       - name: Run Tests
         uses: ./.github/actions/time-and-report
         with:
