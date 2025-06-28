@@ -49,3 +49,8 @@ target/
 # End of https://www.toptal.com/developers/gitignore/api/macos,rust
 
 docker-cache
+
+# Coverage reports
+coverage.json
+lcov.info
+*.profraw
