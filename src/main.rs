@@ -9,7 +9,7 @@ use paperclip::actix::{
 use tarnished_api::{
     AppMetrics, MetricsConfig, RateLimitConfig, RequestIdMiddleware, SecurityHeaders,
     SecurityHeadersConfig, SimpleRateLimiter, SuspiciousActivityTracker, create_openapi_spec,
-    get_metrics, health, login, validate_token, version, weather,
+    get_metrics, health, login, validate_token, version, weather, logs_summary,
     newrelic::{NewRelicConfig, init_tracing, shutdown_tracing},
 };
 
@@ -196,6 +196,7 @@ async fn main() -> std::io::Result<()> {
             .service(web::resource("/api/version").route(web::get().to(version)))
             .service(web::resource("/api/weather").route(web::get().to(weather)))
             .service(web::resource("/api/metrics").route(web::get().to(get_metrics)))
+            .service(web::resource("/api/logs/summary").route(web::get().to(logs_summary)))
             .service(web::resource("/auth/login").route(web::post().to(login)))
             .service(web::resource("/auth/validate").route(web::post().to(validate_token)))
             .with_json_spec_at("/api/spec/v2")
