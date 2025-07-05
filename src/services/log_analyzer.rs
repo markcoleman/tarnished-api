@@ -4,11 +4,12 @@ use crate::models::logs::{LogEntry, LogStatistics, TimeRangeInternal};
 use chrono::{DateTime, Duration, Utc};
 use serde_json::Value;
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Service for analyzing and aggregating log data
 pub struct LogAnalyzer {
     /// Whether to include detailed debugging information
+    #[allow(dead_code)]
     debug_mode: bool,
 }
 
@@ -157,7 +158,7 @@ impl LogAnalyzer {
                 // Extract status code
                 if let Some(status) = fields.get("status").and_then(|v| v.as_u64()) {
                     let status_code = status as u16;
-                    if status_code >= 200 && status_code < 400 {
+                    if (200..400).contains(&status_code) {
                         successful_requests += 1;
                     } else if status_code >= 400 {
                         error_requests += 1;
@@ -225,7 +226,7 @@ mod tests {
 
         let stats = result.unwrap();
         assert!(stats.total_requests > 0);
-        assert!(stats.top_endpoints.len() > 0);
+        assert!(!stats.top_endpoints.is_empty());
         assert_eq!(stats.time_range.start, start_time);
         assert_eq!(stats.time_range.end, end_time);
     }

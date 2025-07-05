@@ -126,7 +126,7 @@ pub async fn logs_summary(
     info!(
         total_requests = summary.traffic.total_requests,
         error_rate = summary.errors.error_rate,
-        top_endpoint = summary.top_endpoints.get(0).map(|e| e.endpoint.as_str()).unwrap_or("none"),
+        top_endpoint = summary.top_endpoints.first().map(|e| e.endpoint.as_str()).unwrap_or("none"),
         "Log summary generated successfully"
     );
 

@@ -183,7 +183,7 @@ mod tests {
     fn test_ai_summarizer_config_defaults() {
         let config = AiSummarizerConfig::default();
         assert_eq!(config.provider, "mock");
-        assert_eq!(config.enabled, true);
+        assert!(config.enabled);
         assert_eq!(config.timeout_seconds, 30);
     }
 
