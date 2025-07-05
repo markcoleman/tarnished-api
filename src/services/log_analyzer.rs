@@ -128,7 +128,7 @@ impl LogAnalyzer {
                 timestamp,
                 level: if status_code >= 400 { "WARN".to_string() } else { "INFO".to_string() },
                 target: Some("http_request".to_string()),
-                message: format!("{} {} -> {}", method, endpoint, status_code),
+                message: format!("{method} {endpoint} -> {status_code}"),
                 fields: Some(fields),
             });
         }

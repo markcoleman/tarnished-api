@@ -112,7 +112,7 @@ pub async fn weather(
 /// Helper function to get weather by ZIP code
 async fn get_weather_by_zip(zip: &str) -> Result<(String, String, String), Error> {
     let mut weather_service = WeatherService::new()
-        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Weather service initialization failed: {}", e)))?;
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Weather service initialization failed: {e}")))?;
     
     weather_service.get_weather_by_zip(zip).await
         .map_err(|e| {
@@ -124,7 +124,7 @@ async fn get_weather_by_zip(zip: &str) -> Result<(String, String, String), Error
 /// Helper function to get weather by coordinates
 async fn get_weather_by_coords(lat: f64, lon: f64) -> Result<(String, String, String), Error> {
     let mut weather_service = WeatherService::new()
-        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Weather service initialization failed: {}", e)))?;
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Weather service initialization failed: {e}")))?;
     
     weather_service.get_weather_by_coords(lat, lon).await
         .map_err(|e| {

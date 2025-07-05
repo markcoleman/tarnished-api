@@ -23,7 +23,7 @@ impl AiSummarizer {
             let client_config = ResilientClientConfig::default();
             Some(
                 ResilientClient::new(client_config, None)
-                    .map_err(|e| format!("Failed to create HTTP client: {}", e))?,
+                    .map_err(|e| format!("Failed to create HTTP client: {e}"))?,
             )
         } else {
             None
@@ -108,27 +108,27 @@ impl AiSummarizer {
             "temperature": 0.3
         });
 
-        let url = format!("{}/chat/completions", base_url);
+        let url = format!("{base_url}/chat/completions");
         
         // Use reqwest directly for OpenAI API call since ResilientClient doesn't support headers
         let http_client = reqwest::Client::new();
         let response = http_client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Authorization", format!("Bearer {api_key}"))
             .header("Content-Type", "application/json")
             .json(&request_body)
             .send()
             .await
-            .map_err(|e| format!("OpenAI API request failed: {}", e))?;
+            .map_err(|e| format!("OpenAI API request failed: {e}"))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            return Err(format!("OpenAI API error {}: {}", status, text));
+            return Err(format!("OpenAI API error {status}: {text}"));
         }
 
         let response_data: Value = response.json().await
-            .map_err(|e| format!("Failed to parse OpenAI response: {}", e))?;
+            .map_err(|e| format!("Failed to parse OpenAI response: {e}"))?;
 
         let summary = response_data
             .get("choices")
@@ -172,24 +172,19 @@ impl AiSummarizer {
         };
 
         let error_analysis = if error_rate > 10.0 {
-            format!(" High error rate detected ({:.1}%) requiring attention.", error_rate)
+            format!(" High error rate detected ({error_rate:.1}%) requiring attention.")
         } else if error_rate > 5.0 {
-            format!(" Moderate error rate ({:.1}%) observed.", error_rate)
+            format!(" Moderate error rate ({error_rate:.1}%) observed.")
         } else {
-            format!(" Low error rate ({:.1}%), system operating normally.", error_rate)
+            format!(" Low error rate ({error_rate:.1}%), system operating normally.")
         };
 
         format!(
-            "API traffic analysis for the last {} hours shows {} total requests {} \
-            averaging {:.1} requests per hour. Most requests targeted '{}' endpoint. \
-            {} unique clients accessed the API.{}",
-            hours,
-            statistics.total_requests,
-            peak_analysis,
-            avg_requests_per_hour,
-            top_endpoint,
-            statistics.unique_ips,
-            error_analysis
+            "API traffic analysis for the last {hours} hours shows {total_requests} total requests {peak_analysis} \
+            averaging {avg_requests_per_hour:.1} requests per hour. Most requests targeted '{top_endpoint}' endpoint. \
+            {unique_ips} unique clients accessed the API.{error_analysis}",
+            total_requests = statistics.total_requests,
+            unique_ips = statistics.unique_ips,
         )
     }
 
@@ -198,22 +193,21 @@ impl AiSummarizer {
         let hours = (statistics.time_range.end - statistics.time_range.start).num_hours();
         
         format!(
-            "Analyze the following API traffic data for the last {} hours and provide a concise summary:\n\n\
-            Total Requests: {}\n\
-            Successful: {}\n\
-            Errors: {}\n\
-            Unique IPs: {}\n\
-            Top Endpoints: {:?}\n\
-            Error Breakdown: {:?}\n\n\
+            "Analyze the following API traffic data for the last {hours} hours and provide a concise summary:\n\n\
+            Total Requests: {total_requests}\n\
+            Successful: {successful_requests}\n\
+            Errors: {error_requests}\n\
+            Unique IPs: {unique_ips}\n\
+            Top Endpoints: {top_endpoints:?}\n\
+            Error Breakdown: {error_breakdown:?}\n\n\
             Please provide a 2-3 sentence summary highlighting key patterns, traffic volume, \
             main endpoints used, and any notable error rates or anomalies.",
-            hours,
-            statistics.total_requests,
-            statistics.successful_requests,
-            statistics.error_requests,
-            statistics.unique_ips,
-            statistics.top_endpoints.iter().take(3).collect::<HashMap<_, _>>(),
-            statistics.error_breakdown
+            total_requests = statistics.total_requests,
+            successful_requests = statistics.successful_requests,
+            error_requests = statistics.error_requests,
+            unique_ips = statistics.unique_ips,
+            top_endpoints = statistics.top_endpoints.iter().take(3).collect::<HashMap<_, _>>(),
+            error_breakdown = statistics.error_breakdown
         )
     }
 
@@ -312,7 +306,7 @@ impl AiSummarizer {
             500 => "Internal Server Error".to_string(),
             502 => "Bad Gateway".to_string(),
             503 => "Service Unavailable".to_string(),
-            _ => format!("HTTP {}", status_code),
+            _ => format!("HTTP {status_code}"),
         }
     }
 }
