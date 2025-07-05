@@ -36,11 +36,7 @@ pub fn validate_signature(
         .map_err(|e| format!("System time error: {e}"))?
         .as_secs();
 
-    let time_diff = if current_time > timestamp {
-        current_time - timestamp
-    } else {
-        timestamp - current_time
-    };
+    let time_diff = current_time.abs_diff(timestamp);
 
     if time_diff > tolerance_seconds {
         return Ok(false);
