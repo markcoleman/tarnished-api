@@ -13,9 +13,9 @@ pub fn generate_signature(
     timestamp: u64,
 ) -> Result<String, String> {
     let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-        .map_err(|e| format!("Invalid secret key: {}", e))?;
+        .map_err(|e| format!("Invalid secret key: {e}"))?;
 
-    let message = format!("{}.{}", timestamp, payload);
+    let message = format!("{timestamp}.{payload}");
     mac.update(message.as_bytes());
 
     let result = mac.finalize();
@@ -33,14 +33,10 @@ pub fn validate_signature(
     // Check timestamp validity first
     let current_time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|e| format!("System time error: {}", e))?
+        .map_err(|e| format!("System time error: {e}"))?
         .as_secs();
 
-    let time_diff = if current_time > timestamp {
-        current_time - timestamp
-    } else {
-        timestamp - current_time
-    };
+    let time_diff = current_time.abs_diff(timestamp);
 
     if time_diff > tolerance_seconds {
         return Ok(false);
@@ -60,9 +56,9 @@ pub fn validate_signature(
     }
 
     let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-        .map_err(|e| format!("Invalid secret key: {}", e))?;
+        .map_err(|e| format!("Invalid secret key: {e}"))?;
 
-    mac.update(format!("{}.{}", timestamp, payload).as_bytes());
+    mac.update(format!("{timestamp}.{payload}").as_bytes());
 
     mac.verify_slice(&signature_bytes)
         .map(|_| true)

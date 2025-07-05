@@ -26,6 +26,15 @@ Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix
 - **Index Page:**  
   The root route (`/`) serves an `index.html` file that uses JavaScript to fetch the OpenAPI spec and pretty print it. This provides a quick way to view the API documentation in your browser.
 
+- **AI-Powered Log Summarization:**  
+  The `/api/logs/summary` endpoint provides intelligent analysis of API request logs using AI. This internal endpoint generates summaries of traffic patterns, error rates, and usage trends from configurable time periods (1-168 hours). Features include:
+  - AI-generated natural language summaries of API usage
+  - Top endpoint analysis with request counts and percentages
+  - Error rate analysis with status code breakdowns
+  - Traffic pattern detection and peak hour identification
+  - Support for both real-time and batch processing modes
+  - Mock AI provider for testing and OpenAI integration for production
+
 - **Authentication & Audit Logging:**  
   The API includes sample authentication endpoints (`/auth/login` and `/auth/validate`) with comprehensive audit logging. All authentication events are logged in structured JSON format including timestamps, IP addresses, user IDs, methods, and outcomes. Logs can be configured for different verbosity levels and are suitable for forwarding to observability platforms like New Relic.
 
@@ -64,6 +73,14 @@ The API can be configured using environment variables:
 ### Weather API Integration
 - `OPENWEATHER_API_KEY` - **Required** - Your OpenWeatherMap API key for weather data (get one free at https://openweathermap.org/api)
 - `OPENWEATHER_BASE_URL` (default: `https://api.openweathermap.org/data/2.5`) - OpenWeatherMap API base URL
+
+### AI Log Summarization
+- `AI_SUMMARIZER_PROVIDER` (default: `mock`) - AI provider: `mock` for testing, `openai` for production
+- `AI_SUMMARIZER_API_KEY` - OpenAI API key (required when provider is `openai`)
+- `AI_SUMMARIZER_BASE_URL` (default: `https://api.openai.com/v1`) - OpenAI API base URL
+- `AI_SUMMARIZER_ENABLED` (default: `true`) - Enable/disable AI summarization
+- `AI_SUMMARIZER_TIMEOUT` (default: `30`) - Timeout for AI requests in seconds
+- `INTERNAL_API_KEY` (default: `dev-internal-key`) - API key for internal endpoints access
 
 ## Authentication & Audit Logging Usage
 
@@ -132,6 +149,55 @@ curl "http://localhost:8080/api/weather?lat=34.05&lon=-118.25"
 - 🌫️ Fog, mist, or haze
 - 🌬️ Windy conditions
 - 🌪️ Severe weather (tornado)
+
+### AI Log Summarization Usage
+
+The AI-powered log analysis endpoint provides intelligent insights into API usage patterns:
+
+```bash
+# Get 24-hour summary using real-time analysis
+curl -H "X-Internal-API-Key: your-internal-key" \
+  "http://localhost:8080/api/logs/summary"
+
+# Get 12-hour summary using batch processing
+curl -H "X-Internal-API-Key: your-internal-key" \
+  "http://localhost:8080/api/logs/summary?mode=batch&hours=12"
+
+# Get 1-week summary  
+curl -H "X-Internal-API-Key: your-internal-key" \
+  "http://localhost:8080/api/logs/summary?hours=168"
+```
+
+**Example Response:**
+```json
+{
+  "summary": "API traffic analysis for the last 24 hours shows 1200 total requests with moderate traffic averaging 50.0 requests per hour. Most requests targeted '/api/health' endpoint. 254 unique clients accessed the API. Low error rate (10.0%) observed.",
+  "top_endpoints": [
+    {"endpoint": "/api/health", "count": 660, "percentage": 55.0},
+    {"endpoint": "/api/weather", "count": 360, "percentage": 30.0}
+  ],
+  "errors": {
+    "total_errors": 120,
+    "error_rate": 10.0,
+    "top_errors": [
+      {"status_code": 400, "count": 60, "description": "Bad Request"},
+      {"status_code": 401, "count": 60, "description": "Unauthorized"}
+    ],
+    "anomalies_detected": []
+  },
+  "traffic": {
+    "total_requests": 1200,
+    "requests_per_hour": 50.0,
+    "peak_hour": "14:00",
+    "unique_clients": 254
+  },
+  "metadata": {
+    "generated_at": "2025-07-04T16:04:05.316Z",
+    "ai_provider": "mock",
+    "processing_mode": "real-time"
+  }
+}
+```
 
 ### Audit Log Format
 

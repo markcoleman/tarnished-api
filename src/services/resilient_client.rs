@@ -575,7 +575,7 @@ impl ResilientClientError {
             ResilientClientError::NetworkError(_) => "Service temporarily unavailable due to network issues".to_string(),
             ResilientClientError::Timeout => "Service temporarily unavailable due to timeout".to_string(),
             ResilientClientError::CircuitBreakerOpen => "Service temporarily unavailable, please try again later".to_string(),
-            ResilientClientError::RetryableStatus(status) => format!("Service returned error status {}, please try again", status),
+            ResilientClientError::RetryableStatus(status) => format!("Service returned error status {status}, please try again"),
             ResilientClientError::Fallback(msg) => msg.clone(),
             ResilientClientError::SerializationError(_) => "Invalid request data".to_string(),
         }

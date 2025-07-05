@@ -86,7 +86,7 @@ pub fn add_response_signature(
 
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|e| format!("System time error: {}", e))?
+        .map_err(|e| format!("System time error: {e}"))?
         .as_secs();
 
     let signature = hmac::generate_signature(&config.secret, body, timestamp)?;
@@ -94,13 +94,13 @@ pub fn add_response_signature(
     response.headers_mut().insert(
         actix_web::http::header::HeaderName::from_static("x-signature"),
         actix_web::http::header::HeaderValue::from_str(&signature)
-            .map_err(|e| format!("Invalid signature format: {}", e))?,
+            .map_err(|e| format!("Invalid signature format: {e}"))?,
     );
 
     response.headers_mut().insert(
         actix_web::http::header::HeaderName::from_static("x-timestamp"),
         actix_web::http::header::HeaderValue::from_str(&timestamp.to_string())
-            .map_err(|e| format!("Invalid timestamp format: {}", e))?,
+            .map_err(|e| format!("Invalid timestamp format: {e}"))?,
     );
 
     Ok(())
