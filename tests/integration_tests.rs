@@ -50,8 +50,7 @@ async fn test_health_endpoint_integration() {
     let content_type_str = content_type.unwrap().to_str().unwrap();
     assert!(
         content_type_str.contains("application/json"),
-        "Expected JSON content type, got: {}",
-        content_type_str
+        "Expected JSON content type, got: {content_type_str}"
     );
 
     // Read and parse response body
@@ -128,8 +127,7 @@ async fn test_version_endpoint_integration() {
     let content_type_str = content_type.unwrap().to_str().unwrap();
     assert!(
         content_type_str.contains("application/json"),
-        "Expected JSON content type, got: {}",
-        content_type_str
+        "Expected JSON content type, got: {content_type_str}"
     );
 
     // Read and parse response body
@@ -226,8 +224,7 @@ async fn test_rate_limiting_integration() {
     let body_str = std::str::from_utf8(&body).unwrap();
     assert!(
         body_str.contains("Too Many Requests") || body_str.contains("Rate limit exceeded"),
-        "Response should contain rate limit error message: {}",
-        body_str
+        "Response should contain rate limit error message: {body_str}"
     );
 
     // Health endpoint should NOT be rate limited
@@ -439,8 +436,7 @@ async fn test_hmac_middleware_required_missing_headers() {
     let body_str = std::str::from_utf8(&body).unwrap();
     assert!(
         body_str.contains("Invalid or missing HMAC signature"),
-        "Error message should mention invalid or missing HMAC signature, got: {}",
-        body_str
+        "Error message should mention invalid or missing HMAC signature, got: {body_str}"
     );
 
     // Clean up
@@ -539,8 +535,7 @@ async fn test_hmac_middleware_invalid_signature() {
     let body_str = std::str::from_utf8(&body).unwrap();
     assert!(
         body_str.contains("Invalid or missing HMAC signature"),
-        "Error message should mention invalid or missing HMAC signature, got: {}",
-        body_str
+        "Error message should mention invalid or missing HMAC signature, got: {body_str}"
     );
 
     // Clean up
@@ -677,7 +672,7 @@ async fn test_security_headers_health_endpoint() {
     if csp.is_none() {
         eprintln!("CSP header is missing. All headers:");
         for (name, value) in headers.iter() {
-            eprintln!("  {}: {:?}", name, value);
+            eprintln!("  {name}: {value:?}");
         }
     }
 
@@ -928,8 +923,7 @@ async fn test_metrics_endpoint_integration() {
     let content_type_str = content_type.unwrap().to_str().unwrap();
     assert!(
         content_type_str.contains("text/plain"),
-        "Expected text/plain content type, got: {}",
-        content_type_str
+        "Expected text/plain content type, got: {content_type_str}"
     );
 
     // Read response body

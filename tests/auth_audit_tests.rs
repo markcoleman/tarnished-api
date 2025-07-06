@@ -34,8 +34,7 @@ async fn test_login_success_audit_logging() {
     let content_type_str = content_type.unwrap().to_str().unwrap();
     assert!(
         content_type_str.contains("application/json"),
-        "Expected JSON content type, got: {}",
-        content_type_str
+        "Expected JSON content type, got: {content_type_str}"
     );
 
     // Read and parse response body
