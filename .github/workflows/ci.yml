@@ -384,6 +384,13 @@ jobs:
         with:
           version: 'v1.33.1'
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create kind config file
         run: |
           cat > kind-config.yaml << 'EOF'
@@ -412,6 +419,12 @@ jobs:
         with:
           step: "wait_for_cluster"
           command: "kubectl wait --for=condition=Ready nodes --all --timeout=60s"
+
+      - name: Pull Docker image
+        uses: ./.github/actions/time-and-report
+        with:
+          step: "pull_docker_image"
+          command: "docker pull ghcr.io/markcoleman/tarnished-api:latest"
 
       - name: Load Docker image into kind
         uses: ./.github/actions/time-and-report
