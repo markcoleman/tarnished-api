@@ -594,11 +594,7 @@ async fn test_response_signature_functionality() {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let time_diff = if current_time > timestamp {
-        current_time - timestamp
-    } else {
-        timestamp - current_time
-    };
+    let time_diff = current_time.abs_diff(timestamp);
     assert!(
         time_diff < 60,
         "Timestamp should be recent (within 60 seconds)"
