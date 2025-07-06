@@ -228,11 +228,26 @@ jobs:
           key: ${{ runner.os }}-syft-cache-${{ hashFiles('**/Cargo.lock', 'Dockerfile') }}
 
       # SBOM Performance Optimization: Build locally first to avoid registry pull (saves 2-5 minutes)
-      - name: Build Docker Image Locally
+      # Note: --load only works with single platform builds, so we build for linux/amd64 for SBOM generation
+      - name: Build Docker Image Locally for SBOM
         uses: ./.github/actions/time-and-report
         with:
           step: "build_docker_image_locally"
-          command: "docker buildx bake --load"
+          command: "docker buildx build --load --tag ghcr.io/markcoleman/tarnished-api:latest --platform linux/amd64 ."
+
+      # Verify the image is available locally
+      - name: Verify Local Image
+        run: |
+          echo "Checking locally available images:"
+          docker images | grep markcoleman || echo "No markcoleman images found"
+          
+          # Verify the specific image exists
+          if docker inspect ghcr.io/markcoleman/tarnished-api:latest >/dev/null 2>&1; then
+            echo "✅ Image ghcr.io/markcoleman/tarnished-api:latest found locally"
+          else
+            echo "❌ Image ghcr.io/markcoleman/tarnished-api:latest not found locally"
+            exit 1
+          fi
 
       # Generate SBOM from the local built image (much faster than pulling from registry)
       - name: Generate SBOM
