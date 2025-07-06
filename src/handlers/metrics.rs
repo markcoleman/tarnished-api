@@ -38,8 +38,7 @@ pub async fn get_metrics(req: HttpRequest) -> Result<HttpResponse, Error> {
                 .content_type("text/plain; version=0.0.4; charset=utf-8")
                 .body(metrics_output)),
             Err(e) => Err(actix_web::error::ErrorInternalServerError(format!(
-                "Failed to render metrics: {}",
-                e
+                "Failed to render metrics: {e}"
             ))),
         }
     } else {

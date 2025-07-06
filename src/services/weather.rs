@@ -42,7 +42,7 @@ impl WeatherService {
 
         let config = ResilientClientConfig::default();
         let client = ResilientClient::new(config, None)
-            .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+            .map_err(|e| format!("Failed to create HTTP client: {e}"))?;
 
         Ok(Self {
             client,
@@ -75,7 +75,7 @@ impl WeatherService {
         }
 
         let weather_data: OpenWeatherResponse = response.json().await
-            .map_err(|e| format!("Failed to parse weather data: {}", e))?;
+            .map_err(|e| format!("Failed to parse weather data: {e}"))?;
 
         let location = self.format_location(&weather_data);
         let weather_condition = weather_data.weather.first()

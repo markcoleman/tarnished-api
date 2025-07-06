@@ -57,14 +57,14 @@ async fn test_newrelic_sensitive_data_redaction() {
         
         // Check that sensitive patterns were replaced
         if input.contains("password") || input.contains("token") || input.contains("api") {
-            assert!(redacted.contains("[REDACTED]"), "Failed: {}", description);
+            assert!(redacted.contains("[REDACTED]"), "Failed: {description}");
         }
         
         if input.contains("@") {
-            assert!(!redacted.contains("user@example.com"), "Failed: {}", description);
+            assert!(!redacted.contains("user@example.com"), "Failed: {description}");
         }
         
-        println!("✅ {}: {} -> {}", description, input, redacted);
+        println!("✅ {description}: {input} -> {redacted}");
     }
 }
 
