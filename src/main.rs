@@ -9,7 +9,7 @@ use paperclip::actix::{
 use tarnished_api::{
     AppMetrics, MetricsConfig, RateLimitConfig, RequestIdMiddleware, SecurityHeaders,
     SecurityHeadersConfig, SimpleRateLimiter, SuspiciousActivityTracker, create_openapi_spec,
-    get_metrics, health, login, validate_token, version, weather, logs_summary,
+    get_metrics, health, login, validate_token, version, weather, logs_summary, HmacConfig,
     newrelic::{NewRelicConfig, init_tracing, shutdown_tracing},
 };
 
@@ -181,6 +181,7 @@ async fn main() -> std::io::Result<()> {
         let metrics_config = MetricsConfig::from_env();
         let metrics = AppMetrics::new().expect("Failed to create metrics");
         let activity_tracker = SuspiciousActivityTracker::new();
+        let hmac_config = HmacConfig::from_env();
 
         App::new()
             .wrap(SecurityHeaders::new(security_config))
@@ -191,6 +192,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(metrics_config))
             .app_data(web::Data::new(metrics))
             .app_data(web::Data::new(activity_tracker))
+            .app_data(web::Data::new(hmac_config))
             .service(web::resource("/").route(web::get().to(index)))
             .service(web::resource("/api/health").route(web::get().to(health)))
             .service(web::resource("/api/version").route(web::get().to(version)))

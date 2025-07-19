@@ -436,13 +436,31 @@ jobs:
         uses: ./.github/actions/time-and-report
         with:
           step: "deploy_to_kind"
-          command: "kubectl apply -f k8s/configmap.yaml -f k8s/secret.yaml -f k8s/deployment.yaml -f k8s/service.yaml"
+          command: "kubectl apply -f k8s/configmap.yaml -f k8s/secret.yaml -f k8s/deployment-ci.yaml -f k8s/service.yaml"
+
+      - name: Show initial pod status
+        run: |
+          echo "Checking initial deployment status..."
+          kubectl get deployments
+          kubectl get pods -l app=tarnished-api
+          kubectl describe pods -l app=tarnished-api
 
       - name: Wait for deployment rollout
         uses: ./.github/actions/time-and-report
         with:
           step: "wait_for_rollout"
-          command: "kubectl rollout status deployment/tarnished-api --timeout=120s"
+          command: "kubectl rollout status deployment/tarnished-api --timeout=300s"
+
+      - name: Debug deployment failure
+        if: failure()
+        run: |
+          echo "Deployment failed, gathering debug information..."
+          kubectl get deployments
+          kubectl get pods -l app=tarnished-api
+          kubectl describe deployment tarnished-api
+          kubectl describe pods -l app=tarnished-api
+          echo "Pod logs:"
+          kubectl logs -l app=tarnished-api --tail=50 || echo "No logs available"
 
       - name: Verify service is reachable
         uses: ./.github/actions/time-and-report
