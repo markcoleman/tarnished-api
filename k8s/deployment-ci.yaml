@@ -6,7 +6,7 @@ metadata:
     app: tarnished-api
     version: v1
 spec:
-  replicas: 2
+  replicas: 1  # Use 1 replica for CI testing to speed up rollout
   selector:
     matchLabels:
       app: tarnished-api
