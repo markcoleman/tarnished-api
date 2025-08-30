@@ -96,10 +96,10 @@ where
             }
 
             // Content-Security-Policy
-            if config.csp_enabled
-                && let Ok(value) = HeaderValue::from_str(&config.csp_directives)
-            {
-                headers.insert(HeaderName::from_static("content-security-policy"), value);
+            if config.csp_enabled {
+                if let Ok(value) = HeaderValue::from_str(&config.csp_directives) {
+                    headers.insert(HeaderName::from_static("content-security-policy"), value);
+                }
             }
 
             // Strict-Transport-Security (HSTS)
