@@ -13,7 +13,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use tokio_retry::{Retry, strategy::ExponentialBackoff};
+use tokio_retry::{strategy::ExponentialBackoff, Retry};
 use tracing::{error, info, warn};
 
 /// Configuration for resilient HTTP client

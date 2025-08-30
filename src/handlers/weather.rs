@@ -6,11 +6,11 @@ use crate::{
     models::{McpResponse, WeatherQuery, WeatherResponse},
     services::{
         auth::hmac_signature_middleware,
-        rate_limit::{SimpleRateLimiter, rate_limit_middleware},
+        rate_limit::{rate_limit_middleware, SimpleRateLimiter},
         weather::WeatherService,
     },
 };
-use actix_web::{Error, HttpRequest, Result, web};
+use actix_web::{web, Error, HttpRequest, Result};
 use paperclip::actix::api_v2_operation;
 
 /// Weather endpoint

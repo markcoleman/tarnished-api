@@ -4,10 +4,10 @@ use crate::{
     config::{HmacConfig, MetricsConfig, RateLimitConfig, SecurityHeadersConfig},
     handlers::{get_metrics, health, login, validate_token, version, weather},
     middleware::{McpMiddleware, MetricsMiddleware, RequestIdMiddleware, SecurityHeaders},
-    services::{AppMetrics, SuspiciousActivityTracker, rate_limit::SimpleRateLimiter},
+    services::{rate_limit::SimpleRateLimiter, AppMetrics, SuspiciousActivityTracker},
 };
 use actix_web::App;
-use paperclip::actix::{OpenApiExt, web};
+use paperclip::actix::{web, OpenApiExt};
 use paperclip::v2::models::{DefaultApiRaw, Info};
 
 /// Creates the shared OpenAPI specification for the API

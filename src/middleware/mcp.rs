@@ -6,11 +6,11 @@
 
 use crate::models::mcp::ContextMetadata;
 use actix_web::{
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage,
-    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
 };
 use std::{
-    future::{Ready, ready},
+    future::{ready, Ready},
     pin::Pin,
     rc::Rc,
 };
@@ -138,7 +138,7 @@ pub fn extract_mcp_context(req: &actix_web::HttpRequest) -> Option<ContextMetada
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{App, HttpRequest, HttpResponse, test, web};
+    use actix_web::{test, web, App, HttpRequest, HttpResponse};
 
     async fn test_handler(req: HttpRequest) -> HttpResponse {
         let context = extract_mcp_context(&req);

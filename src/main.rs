@@ -1,17 +1,17 @@
 use actix_web::{App, HttpRequest, HttpResponse, HttpServer};
 use paperclip::actix::{
-    // extension trait for actix_web::App and proc-macro attributes
-    OpenApiExt,
     api_v2_operation,
     // Import the paperclip web module
     web::{self},
+    // extension trait for actix_web::App and proc-macro attributes
+    OpenApiExt,
 };
 use tarnished_api::{
-    AppMetrics, HmacConfig, MetricsConfig, RateLimitConfig, RequestIdMiddleware, SecurityHeaders,
-    SecurityHeadersConfig, SimpleRateLimiter, SuspiciousActivityTracker, create_openapi_spec,
-    get_metrics, health, login, logs_summary,
-    newrelic::{NewRelicConfig, init_tracing, shutdown_tracing},
-    validate_token, version, weather,
+    create_openapi_spec, get_metrics, health, login, logs_summary,
+    newrelic::{init_tracing, shutdown_tracing, NewRelicConfig},
+    validate_token, version, weather, AppMetrics, HmacConfig, MetricsConfig, RateLimitConfig,
+    RequestIdMiddleware, SecurityHeaders, SecurityHeadersConfig, SimpleRateLimiter,
+    SuspiciousActivityTracker,
 };
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
@@ -215,7 +215,7 @@ async fn main() -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use actix_web::{App, test, web};
+    use actix_web::{test, web, App};
     use tarnished_api::{health, version, weather};
 
     #[actix_web::test]

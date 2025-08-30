@@ -1,12 +1,12 @@
 //! Request ID middleware for tracing and logging.
 
 use actix_web::{
-    Error, HttpMessage,
-    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     http::header::{HeaderName, HeaderValue},
+    Error, HttpMessage,
 };
 use std::{
-    future::{Ready, ready},
+    future::{ready, Ready},
     pin::Pin,
 };
 use uuid::Uuid;

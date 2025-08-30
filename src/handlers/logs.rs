@@ -3,8 +3,8 @@
 use crate::models::logs::{AiSummarizerConfig, LogSummaryResponse};
 use crate::services::{AiSummarizer, LogAnalyzer};
 use crate::utils::http::extract_client_ip;
-use actix_web::{Error, HttpRequest, Result, web};
-use paperclip::actix::{Apiv2Schema, api_v2_operation};
+use actix_web::{web, Error, HttpRequest, Result};
+use paperclip::actix::{api_v2_operation, Apiv2Schema};
 use serde::Deserialize;
 use tracing::{error, info, warn};
 
@@ -144,8 +144,8 @@ fn is_internal_request(req: &HttpRequest) -> bool {
     // Check for internal API key header
     if let Some(api_key) = req.headers().get("X-Internal-API-Key") {
         if let Ok(key_str) = api_key.to_str() {
-            let expected_key =
-                std::env::var("INTERNAL_API_KEY").unwrap_or_else(|_| "dev-internal-key".to_string());
+            let expected_key = std::env::var("INTERNAL_API_KEY")
+                .unwrap_or_else(|_| "dev-internal-key".to_string());
             return key_str == expected_key;
         }
     }
@@ -161,7 +161,7 @@ fn is_internal_request(req: &HttpRequest) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{App, test};
+    use actix_web::{test, App};
 
     #[actix_web::test]
     async fn test_logs_summary_unauthorized() {

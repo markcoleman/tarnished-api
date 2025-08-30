@@ -1,7 +1,7 @@
 //! Metrics endpoint handler.
 
 use crate::{config::MetricsConfig, services::AppMetrics};
-use actix_web::{Error, HttpRequest, HttpResponse, Result, web};
+use actix_web::{web, Error, HttpRequest, HttpResponse, Result};
 use paperclip::actix::api_v2_operation;
 
 /// Prometheus metrics endpoint

@@ -2,12 +2,11 @@
 
 use crate::{services::AppMetrics, utils::route::extract_route_pattern};
 use actix_web::{
-    Error,
-    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
-    web,
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    web, Error,
 };
 use std::{
-    future::{Ready, ready},
+    future::{ready, Ready},
     pin::Pin,
     time::Instant,
 };

@@ -7,7 +7,7 @@ use crate::{
     },
     utils::http::{extract_client_ip, extract_user_agent},
 };
-use actix_web::{Error, HttpRequest, Result, web};
+use actix_web::{web, Error, HttpRequest, Result};
 use paperclip::actix::api_v2_operation;
 use uuid::Uuid;
 

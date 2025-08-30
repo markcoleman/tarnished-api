@@ -1,7 +1,7 @@
 use actix_web::{http::StatusCode, test};
 use tarnished_api::{
-    AuthAuditEvent, AuthEventOutcome, AuthEventType, LoginRequest, LoginResponse,
-    TokenValidationRequest, TokenValidationResponse, create_base_app,
+    create_base_app, AuthAuditEvent, AuthEventOutcome, AuthEventType, LoginRequest, LoginResponse,
+    TokenValidationRequest, TokenValidationResponse,
 };
 
 #[actix_web::test]

@@ -2,12 +2,12 @@
 
 use crate::config::SecurityHeadersConfig;
 use actix_web::{
-    Error,
-    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     http::header::{HeaderName, HeaderValue},
+    Error,
 };
 use std::{
-    future::{Ready, ready},
+    future::{ready, Ready},
     pin::Pin,
 };
 

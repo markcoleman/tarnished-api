@@ -1,7 +1,7 @@
 //! Weather endpoint integration tests.
 
-use actix_web::{App, test, web};
-use tarnished_api::{WeatherQuery, WeatherResponse, weather};
+use actix_web::{test, web, App};
+use tarnished_api::{weather, WeatherQuery, WeatherResponse};
 
 #[actix_web::test]
 async fn test_weather_endpoint_missing_params() {

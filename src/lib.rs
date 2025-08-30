@@ -48,8 +48,8 @@ pub use handlers::{
     version, weather,
 };
 pub use middleware::{
-    McpMiddleware, MetricsMiddleware, RequestIdMiddleware, SecurityHeaders, extract_mcp_context,
-    metrics_middleware,
+    extract_mcp_context, metrics_middleware, McpMiddleware, MetricsMiddleware, RequestIdMiddleware,
+    SecurityHeaders,
 };
 pub use models::{
     AiSummarizerConfig, AuthAuditEvent, AuthEventOutcome, AuthEventType, ContextMetadata,
@@ -58,9 +58,9 @@ pub use models::{
     WeatherResponse,
 };
 pub use services::{
-    AiSummarizer, AppMetrics, LogAnalyzer, ResilientClient, ResilientClientConfig,
-    ResilientClientError, ResilientClientMetrics, SimpleRateLimiter, SuspiciousActivityTracker,
-    WeatherService, add_response_signature, hmac_signature_middleware, rate_limit_middleware,
+    add_response_signature, hmac_signature_middleware, rate_limit_middleware, AiSummarizer,
+    AppMetrics, LogAnalyzer, ResilientClient, ResilientClientConfig, ResilientClientError,
+    ResilientClientMetrics, SimpleRateLimiter, SuspiciousActivityTracker, WeatherService,
 };
 pub use utils::{extract_client_ip, extract_route_pattern, extract_user_agent};
 

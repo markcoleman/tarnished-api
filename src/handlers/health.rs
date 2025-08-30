@@ -6,7 +6,7 @@ use crate::{
     models::{HealthResponse, McpResponse},
     services::auth::hmac_signature_middleware,
 };
-use actix_web::{Error, HttpRequest, Result, web};
+use actix_web::{web, Error, HttpRequest, Result};
 use paperclip::actix::api_v2_operation;
 
 /// Health check endpoint

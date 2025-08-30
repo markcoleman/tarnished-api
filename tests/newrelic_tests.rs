@@ -1,5 +1,5 @@
-use actix_web::{App, test, web};
-use tarnished_api::{RequestIdMiddleware, health, newrelic::*};
+use actix_web::{test, web, App};
+use tarnished_api::{health, newrelic::*, RequestIdMiddleware};
 
 #[actix_web::test]
 async fn test_newrelic_fields_extraction() {
