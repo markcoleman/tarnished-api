@@ -35,13 +35,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match test_endpoint(&client, &format!("{}/api/version", base_url)).await {
         Ok(response) => {
             println!("✅ Version info received:");
-            if let Ok(json) = serde_json::from_str::<Value>(&response) {
-                if let Some(obj) = json.as_object() {
+            if let Ok(json) = serde_json::from_str::<Value>(&response)
+                && let Some(obj) = json.as_object() {
                     for (key, value) in obj {
                         println!("   {}: {}", key, value);
                     }
                 }
-            }
             println!();
         }
         Err(e) => println!("❌ Version check failed: {}\n", e),
@@ -61,15 +60,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let url = format!("{}/api/weather?{}", base_url, params);
         match test_endpoint(&client, &url).await {
             Ok(response) => {
-                if let Ok(json) = serde_json::from_str::<Value>(&response) {
-                    if let Some(location) = json.get("location") {
-                        if let Some(weather) = json.get("weather") {
-                            if let Some(emoji) = json.get("emoji") {
-                                println!("     ✅ {}: {} {}", location, weather, emoji);
-                            }
-                        }
+                if let Ok(json) = serde_json::from_str::<Value>(&response)
+                    && let Some(location) = json.get("location")
+                    && let Some(weather) = json.get("weather")
+                    && let Some(emoji) = json.get("emoji") {
+                        println!("     ✅ {}: {} {}", location, weather, emoji);
                     }
-                }
             }
             Err(e) => println!("     ❌ Failed: {}", e),
         }
