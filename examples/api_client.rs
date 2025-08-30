@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test weather endpoint with different parameters
     println!("🌤️  Testing weather endpoint...");
-    
+
     let weather_tests = vec![
         ("lat=34.05&lon=-118.25", "Los Angeles coordinates"),
         ("zip=90210", "Beverly Hills ZIP code"),
@@ -85,11 +85,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn test_endpoint(client: &Client, url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let response = client.get(url).send().await?;
-    
+
     if !response.status().is_success() {
-        return Err(format!("HTTP {}: {}", response.status(), response.status().canonical_reason().unwrap_or("Unknown")).into());
+        return Err(format!(
+            "HTTP {}: {}",
+            response.status(),
+            response.status().canonical_reason().unwrap_or("Unknown")
+        )
+        .into());
     }
-    
+
     let text = response.text().await?;
     Ok(text)
 }

@@ -8,7 +8,7 @@
 //! cargo run --example dev_server
 //! ```
 
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, web};
 use tarnished_api::{health, version, weather};
 
 #[actix_web::main]

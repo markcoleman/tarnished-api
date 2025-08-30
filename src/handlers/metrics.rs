@@ -20,11 +20,12 @@ use paperclip::actix::api_v2_operation;
 pub async fn get_metrics(req: HttpRequest) -> Result<HttpResponse, Error> {
     // Check if metrics are enabled
     if let Some(config) = req.app_data::<web::Data<MetricsConfig>>()
-        && !config.enabled {
-            return Ok(HttpResponse::ServiceUnavailable()
-                .content_type("text/plain")
-                .body("Metrics collection is disabled"));
-        }
+        && !config.enabled
+    {
+        return Ok(HttpResponse::ServiceUnavailable()
+            .content_type("text/plain")
+            .body("Metrics collection is disabled"));
+    }
 
     // Get metrics from app data
     if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {

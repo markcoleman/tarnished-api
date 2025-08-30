@@ -143,11 +143,12 @@ pub async fn logs_summary(
 fn is_internal_request(req: &HttpRequest) -> bool {
     // Check for internal API key header
     if let Some(api_key) = req.headers().get("X-Internal-API-Key")
-        && let Ok(key_str) = api_key.to_str() {
-            let expected_key = std::env::var("INTERNAL_API_KEY")
-                .unwrap_or_else(|_| "dev-internal-key".to_string());
-            return key_str == expected_key;
-        }
+        && let Ok(key_str) = api_key.to_str()
+    {
+        let expected_key =
+            std::env::var("INTERNAL_API_KEY").unwrap_or_else(|_| "dev-internal-key".to_string());
+        return key_str == expected_key;
+    }
 
     // Check if request is from localhost/internal networks
     let ip = extract_client_ip(req);

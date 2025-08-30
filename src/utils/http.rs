@@ -20,13 +20,14 @@ pub fn extract_client_ip(req: &HttpRequest) -> String {
 
     for header_name in &ip_headers {
         if let Some(header_value) = req.headers().get(*header_name)
-            && let Ok(header_str) = header_value.to_str() {
-                // X-Forwarded-For can contain multiple IPs, take the first one
-                let ip = header_str.split(',').next().unwrap_or(header_str).trim();
-                if !ip.is_empty() {
-                    return ip.to_string();
-                }
+            && let Ok(header_str) = header_value.to_str()
+        {
+            // X-Forwarded-For can contain multiple IPs, take the first one
+            let ip = header_str.split(',').next().unwrap_or(header_str).trim();
+            if !ip.is_empty() {
+                return ip.to_string();
             }
+        }
     }
 
     // Fall back to connection remote address

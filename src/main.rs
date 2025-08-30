@@ -94,12 +94,13 @@ async fn main() -> std::io::Result<()> {
 
     // Initialize New Relic tracing first if enabled
     if newrelic_config.enabled
-        && let Err(e) = init_tracing(&newrelic_config) {
-            tracing::error!(
-                error = %e,
-                "Failed to initialize New Relic tracing"
-            );
-        }
+        && let Err(e) = init_tracing(&newrelic_config)
+    {
+        tracing::error!(
+            error = %e,
+            "Failed to initialize New Relic tracing"
+        );
+    }
 
     // Initialize structured logging
     let env_filter =
