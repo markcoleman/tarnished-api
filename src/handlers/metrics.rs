@@ -1,14 +1,11 @@
 //! Metrics endpoint handler.
 
-use crate::{
-    config::MetricsConfig,
-    services::AppMetrics,
-};
-use actix_web::{web, Error, HttpRequest, HttpResponse, Result};
+use crate::{config::MetricsConfig, services::AppMetrics};
+use actix_web::{Error, HttpRequest, HttpResponse, Result, web};
 use paperclip::actix::api_v2_operation;
 
 /// Prometheus metrics endpoint
-/// 
+///
 /// Returns Prometheus-formatted metrics for monitoring API performance
 /// and usage patterns. This endpoint is typically scraped by monitoring systems.
 #[api_v2_operation(
@@ -22,13 +19,12 @@ use paperclip::actix::api_v2_operation;
 )]
 pub async fn get_metrics(req: HttpRequest) -> Result<HttpResponse, Error> {
     // Check if metrics are enabled
-    if let Some(config) = req.app_data::<web::Data<MetricsConfig>>() {
-        if !config.enabled {
+    if let Some(config) = req.app_data::<web::Data<MetricsConfig>>()
+        && !config.enabled {
             return Ok(HttpResponse::ServiceUnavailable()
                 .content_type("text/plain")
                 .body("Metrics collection is disabled"));
         }
-    }
 
     // Get metrics from app data
     if let Some(metrics) = req.app_data::<web::Data<AppMetrics>>() {

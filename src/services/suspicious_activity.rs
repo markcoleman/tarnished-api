@@ -8,7 +8,7 @@ use std::{
 };
 
 /// Tracks suspicious authentication activity by IP address
-/// 
+///
 /// This service monitors failed authentication attempts and can identify
 /// potentially malicious activity patterns.
 pub struct SuspiciousActivityTracker {
@@ -44,7 +44,7 @@ impl SuspiciousActivityTracker {
     }
 
     /// Record a failed authentication attempt for the given IP
-    /// 
+    ///
     /// Returns `true` if this IP has reached the suspicious threshold,
     /// `false` if it's still within acceptable limits.
     pub fn record_failure(&self, ip: &str) -> bool {
@@ -75,7 +75,7 @@ impl SuspiciousActivityTracker {
     }
 
     /// Check if the given IP address has suspicious activity patterns
-    /// 
+    ///
     /// Returns `true` if the IP has exceeded the failure threshold
     /// within the configured time window.
     pub fn is_suspicious(&self, ip: &str) -> bool {

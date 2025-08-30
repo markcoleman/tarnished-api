@@ -2,17 +2,18 @@
 
 use crate::{services::AppMetrics, utils::route::extract_route_pattern};
 use actix_web::{
-    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    web, Error,
+    Error,
+    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
+    web,
 };
 use std::{
-    future::{ready, Ready},
+    future::{Ready, ready},
     pin::Pin,
     time::Instant,
 };
 
 /// Metrics middleware factory
-/// 
+///
 /// This middleware automatically records request metrics including
 /// response times, status codes, and request counts.
 pub struct MetricsMiddleware;
@@ -75,7 +76,7 @@ where
 }
 
 /// Function-based metrics middleware for manual use
-/// 
+///
 /// This function can be called manually from handlers to record metrics
 /// when the automatic middleware is not suitable.
 pub fn metrics_middleware(

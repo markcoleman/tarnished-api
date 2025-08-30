@@ -49,8 +49,7 @@ impl SecurityHeadersConfig {
             .and_then(|v| v.parse().ok())
             .unwrap_or(31536000);
 
-        let frame_options = env::var("X_FRAME_OPTIONS")
-            .unwrap_or_else(|_| "DENY".to_string());
+        let frame_options = env::var("X_FRAME_OPTIONS").unwrap_or_else(|_| "DENY".to_string());
 
         let content_type_options = env::var("X_CONTENT_TYPE_OPTIONS")
             .map(|v| v.to_lowercase() == "true")
@@ -60,8 +59,8 @@ impl SecurityHeadersConfig {
             .map(|v| v.to_lowercase() == "true")
             .unwrap_or(true);
 
-        let referrer_policy = env::var("REFERRER_POLICY")
-            .unwrap_or_else(|_| "no-referrer".to_string());
+        let referrer_policy =
+            env::var("REFERRER_POLICY").unwrap_or_else(|_| "no-referrer".to_string());
 
         Self {
             csp_enabled,

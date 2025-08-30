@@ -7,10 +7,11 @@ use paperclip::actix::{
     web::{self},
 };
 use tarnished_api::{
-    AppMetrics, MetricsConfig, RateLimitConfig, RequestIdMiddleware, SecurityHeaders,
+    AppMetrics, HmacConfig, MetricsConfig, RateLimitConfig, RequestIdMiddleware, SecurityHeaders,
     SecurityHeadersConfig, SimpleRateLimiter, SuspiciousActivityTracker, create_openapi_spec,
-    get_metrics, health, login, validate_token, version, weather, logs_summary, HmacConfig,
+    get_metrics, health, login, logs_summary,
     newrelic::{NewRelicConfig, init_tracing, shutdown_tracing},
+    validate_token, version, weather,
 };
 
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
@@ -90,16 +91,15 @@ async fn index(req: HttpRequest) -> HttpResponse {
 async fn main() -> std::io::Result<()> {
     // Initialize New Relic configuration
     let newrelic_config = NewRelicConfig::from_env();
-    
+
     // Initialize New Relic tracing first if enabled
-    if newrelic_config.enabled {
-        if let Err(e) = init_tracing(&newrelic_config) {
+    if newrelic_config.enabled
+        && let Err(e) = init_tracing(&newrelic_config) {
             tracing::error!(
                 error = %e,
                 "Failed to initialize New Relic tracing"
             );
         }
-    }
 
     // Initialize structured logging
     let env_filter =
@@ -117,9 +117,7 @@ async fn main() -> std::io::Result<()> {
             .with_env_filter(env_filter)
             .init();
     } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(env_filter)
-            .init();
+        tracing_subscriber::fmt().with_env_filter(env_filter).init();
     }
 
     // Set up panic handler to forward panics to logs
@@ -132,8 +130,9 @@ async fn main() -> std::io::Result<()> {
         } else {
             "Unknown panic".to_string()
         };
-        
-        let location = panic_info.location()
+
+        let location = panic_info
+            .location()
             .map(|loc| format!("{}:{}:{}", loc.file(), loc.line(), loc.column()))
             .unwrap_or_else(|| "unknown location".to_string());
 
@@ -169,7 +168,7 @@ async fn main() -> std::io::Result<()> {
     tracing::info!(
         message = "Configuration options",
         log_format_json = "Set LOG_FORMAT=json for structured JSON logging",
-        verbose_logging = "Set RUST_LOG=debug,auth_audit=info for verbose logging", 
+        verbose_logging = "Set RUST_LOG=debug,auth_audit=info for verbose logging",
         newrelic_integration = "Set NEW_RELIC_LICENSE_KEY to enable New Relic integration",
         "Server configuration help"
     );
@@ -260,7 +259,8 @@ mod tests {
     #[actix_web::test]
     async fn test_weather_endpoint_validation() {
         // Create a test app with the /api/weather route.
-        let app = test::init_service(App::new().route("/api/weather", web::get().to(weather))).await;
+        let app =
+            test::init_service(App::new().route("/api/weather", web::get().to(weather))).await;
 
         // Test missing parameters - should return 400
         let req = test::TestRequest::get().uri("/api/weather").to_request();
@@ -268,7 +268,9 @@ mod tests {
         assert_eq!(resp.status(), 400);
 
         // Test invalid latitude - should return 400
-        let req = test::TestRequest::get().uri("/api/weather?lat=100&lon=0").to_request();
+        let req = test::TestRequest::get()
+            .uri("/api/weather?lat=100&lon=0")
+            .to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), 400);
     }

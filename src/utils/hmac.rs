@@ -7,11 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 type HmacSha256 = Hmac<Sha256>;
 
 /// Generate HMAC-SHA256 signature for the given payload and timestamp
-pub fn generate_signature(
-    secret: &str,
-    payload: &str,
-    timestamp: u64,
-) -> Result<String, String> {
+pub fn generate_signature(secret: &str, payload: &str, timestamp: u64) -> Result<String, String> {
     let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
         .map_err(|e| format!("Invalid secret key: {e}"))?;
 

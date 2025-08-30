@@ -27,7 +27,7 @@ impl LogAnalyzer {
     pub async fn analyze_last_24_hours(&self) -> Result<LogStatistics, String> {
         let end_time = Utc::now();
         let start_time = end_time - Duration::hours(24);
-        
+
         self.analyze_time_range(start_time, end_time).await
     }
 
@@ -46,9 +46,9 @@ impl LogAnalyzer {
         // In a real implementation, this would read from actual log files or a logging service
         // For now, we'll simulate log analysis based on audit events and structured logs
         let log_entries = self.collect_log_entries(start_time, end_time).await?;
-        
+
         let statistics = self.aggregate_statistics(&log_entries, start_time, end_time);
-        
+
         info!(
             total_requests = statistics.total_requests,
             successful_requests = statistics.successful_requests,
@@ -70,14 +70,11 @@ impl LogAnalyzer {
         // 1. Read from structured log files (JSON format)
         // 2. Query a logging service like New Relic, Loki, or Elasticsearch
         // 3. Parse application-specific log formats
-        
+
         // For now, we'll generate some mock data for demonstration
         let mock_entries = self.generate_mock_log_entries(start_time, end_time);
-        
-        debug!(
-            count = mock_entries.len(),
-            "Collected log entries"
-        );
+
+        debug!(count = mock_entries.len(), "Collected log entries");
 
         Ok(mock_entries)
     }
@@ -93,9 +90,8 @@ impl LogAnalyzer {
         let num_entries = (duration.num_hours() * 50) as usize; // ~50 requests per hour
 
         for i in 0..num_entries {
-            let timestamp = start_time + Duration::seconds(
-                (duration.num_seconds() * i as i64) / num_entries as i64
-            );
+            let timestamp = start_time
+                + Duration::seconds((duration.num_seconds() * i as i64) / num_entries as i64);
 
             // Simulate different types of requests
             let (endpoint, status_code, method) = match i % 20 {
@@ -121,12 +117,22 @@ impl LogAnalyzer {
             fields.insert("endpoint".to_string(), Value::String(endpoint.to_string()));
             fields.insert("status".to_string(), Value::Number(status_code.into()));
             fields.insert("ip_address".to_string(), Value::String(ip_address));
-            fields.insert("user_agent".to_string(), Value::String(user_agent.to_string()));
-            fields.insert("duration_ms".to_string(), Value::Number((i % 500 + 10).into()));
+            fields.insert(
+                "user_agent".to_string(),
+                Value::String(user_agent.to_string()),
+            );
+            fields.insert(
+                "duration_ms".to_string(),
+                Value::Number((i % 500 + 10).into()),
+            );
 
             entries.push(LogEntry {
                 timestamp,
-                level: if status_code >= 400 { "WARN".to_string() } else { "INFO".to_string() },
+                level: if status_code >= 400 {
+                    "WARN".to_string()
+                } else {
+                    "INFO".to_string()
+                },
                 target: Some("http_request".to_string()),
                 message: format!("{method} {endpoint} -> {status_code}"),
                 fields: Some(fields),
@@ -241,7 +247,7 @@ mod tests {
         assert!(stats.total_requests > 0);
         assert!(stats.successful_requests > 0);
         assert!(stats.unique_ips > 0);
-        
+
         // Should have some common endpoints
         assert!(stats.top_endpoints.contains_key("/api/health"));
     }
@@ -251,10 +257,10 @@ mod tests {
         let analyzer = LogAnalyzer::new();
         let end_time = Utc::now();
         let start_time = end_time - Duration::hours(2);
-        
+
         let entries = analyzer.generate_mock_log_entries(start_time, end_time);
         assert!(!entries.is_empty());
-        
+
         // Check that entries are within the time range
         for entry in &entries {
             assert!(entry.timestamp >= start_time);

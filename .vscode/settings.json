@@ -1,0 +1,22 @@
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.clippy": "explicit"
+    },
+    "rust-analyzer.checkOnSave.command": "clippy",
+    "rust-analyzer.checkOnSave.extraArgs": ["--", "-D", "warnings"],
+    "rust-analyzer.cargo.features": "all",
+    "files.associations": {
+        "*.toml": "toml",
+        "justfile": "makefile"
+    },
+    "files.exclude": {
+        "**/target": true,
+        "**/.git": true,
+        "**/node_modules": true
+    },
+    "search.exclude": {
+        "**/target": true,
+        "**/Cargo.lock": true
+    }
+}

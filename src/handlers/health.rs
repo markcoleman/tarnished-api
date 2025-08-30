@@ -2,18 +2,18 @@
 
 use crate::{
     config::HmacConfig,
+    middleware::extract_mcp_context,
     models::{HealthResponse, McpResponse},
     services::auth::hmac_signature_middleware,
-    middleware::extract_mcp_context,
 };
-use actix_web::{web, Error, HttpRequest, Result};
+use actix_web::{Error, HttpRequest, Result, web};
 use paperclip::actix::api_v2_operation;
 
 /// Health check endpoint
-/// 
+///
 /// Returns the current health status of the API. This endpoint can be used
 /// by load balancers, monitoring systems, and health check probes.
-/// 
+///
 /// For MCP-aware clients, the response will include context metadata.
 #[api_v2_operation(
     summary = "Health Check Endpoint",

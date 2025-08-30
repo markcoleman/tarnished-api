@@ -1,5 +1,5 @@
-use vergen::EmitBuilder;
 use std::process::Command;
+use vergen::EmitBuilder;
 
 fn main() {
     // Check if we're in a git repository
@@ -18,9 +18,7 @@ fn main() {
             .emit()
     } else {
         // No git, build without git metadata
-        EmitBuilder::builder()
-            .build_timestamp()
-            .emit()
+        EmitBuilder::builder().build_timestamp().emit()
     };
 
     result.expect("Unable to generate build metadata");

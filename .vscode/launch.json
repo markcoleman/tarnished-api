@@ -1,0 +1,64 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Tarnished API",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=tarnished-api",
+                    "--package=tarnished-api"
+                ],
+                "filter": {
+                    "name": "tarnished-api",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_LOG": "debug",
+                "RUST_BACKTRACE": "1"
+            }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Tests",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=tarnished-api",
+                    "--package=tarnished-api"
+                ],
+                "filter": {
+                    "name": "tarnished-api",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug HMAC Example",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=hmac_demo",
+                    "--package=tarnished-api"
+                ],
+                "filter": {
+                    "name": "hmac_demo",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

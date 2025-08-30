@@ -37,18 +37,33 @@ pub mod config;
 pub mod handlers;
 pub mod middleware;
 pub mod models;
+pub mod newrelic;
 pub mod services;
 pub mod utils;
-pub mod newrelic;
 
 // Re-export commonly used types and functions for convenience
-pub use config::{MetricsConfig, RateLimitConfig, HmacConfig, SecurityHeadersConfig};
-pub use handlers::{health, version, get_metrics, login, validate_token, weather, logs_summary, create_openapi_spec, create_base_app};
-pub use middleware::{SecurityHeaders, RequestIdMiddleware, MetricsMiddleware, metrics_middleware, McpMiddleware, extract_mcp_context};
-pub use models::{HealthResponse, VersionResponse, WeatherQuery, WeatherResponse, LoginRequest, LoginResponse, TokenValidationRequest, TokenValidationResponse, AuthAuditEvent, AuthEventType, AuthEventOutcome, ContextMetadata, McpResponse, ToMcpResponse, LogSummaryResponse, AiSummarizerConfig};
-pub use services::{AppMetrics, SimpleRateLimiter, SuspiciousActivityTracker, WeatherService, rate_limit_middleware, hmac_signature_middleware, add_response_signature, ResilientClient, ResilientClientConfig, ResilientClientMetrics, ResilientClientError, LogAnalyzer, AiSummarizer};
-pub use utils::{extract_client_ip, extract_user_agent, extract_route_pattern};
+pub use config::{HmacConfig, MetricsConfig, RateLimitConfig, SecurityHeadersConfig};
+pub use handlers::{
+    create_base_app, create_openapi_spec, get_metrics, health, login, logs_summary, validate_token,
+    version, weather,
+};
+pub use middleware::{
+    McpMiddleware, MetricsMiddleware, RequestIdMiddleware, SecurityHeaders, extract_mcp_context,
+    metrics_middleware,
+};
+pub use models::{
+    AiSummarizerConfig, AuthAuditEvent, AuthEventOutcome, AuthEventType, ContextMetadata,
+    HealthResponse, LogSummaryResponse, LoginRequest, LoginResponse, McpResponse, ToMcpResponse,
+    TokenValidationRequest, TokenValidationResponse, VersionResponse, WeatherQuery,
+    WeatherResponse,
+};
+pub use services::{
+    AiSummarizer, AppMetrics, LogAnalyzer, ResilientClient, ResilientClientConfig,
+    ResilientClientError, ResilientClientMetrics, SimpleRateLimiter, SuspiciousActivityTracker,
+    WeatherService, add_response_signature, hmac_signature_middleware, rate_limit_middleware,
+};
+pub use utils::{extract_client_ip, extract_route_pattern, extract_user_agent};
 
 // Additional re-exports for backward compatibility with tests
-pub use middleware::{SecurityHeadersMiddleware, RequestIdService, MetricsService};
+pub use middleware::{MetricsService, RequestIdService, SecurityHeadersMiddleware};
 pub use utils::hmac as hmac_utils;

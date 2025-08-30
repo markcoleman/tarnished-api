@@ -1,18 +1,18 @@
 //! Request ID middleware for tracing and logging.
 
 use actix_web::{
-    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    Error, HttpMessage,
+    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
     http::header::{HeaderName, HeaderValue},
-    HttpMessage, Error,
 };
 use std::{
-    future::{ready, Ready},
+    future::{Ready, ready},
     pin::Pin,
 };
 use uuid::Uuid;
 
 /// Request ID middleware factory
-/// 
+///
 /// This middleware ensures every request has a unique ID for tracing purposes.
 /// It will use an existing X-Request-ID header if present, or generate a new UUID.
 pub struct RequestIdMiddleware;
@@ -53,7 +53,7 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let start_time = std::time::Instant::now();
-        
+
         // Extract or generate Request ID
         let request_id = req
             .headers()

@@ -28,8 +28,9 @@ impl Default for NewRelicConfig {
 impl NewRelicConfig {
     pub fn from_env() -> Self {
         let api_key = env::var("NEW_RELIC_LICENSE_KEY").ok();
-        let enabled = api_key.is_some() && env::var("NEW_RELIC_ENABLED").unwrap_or_else(|_| "true".to_string()) == "true";
-        
+        let enabled = api_key.is_some()
+            && env::var("NEW_RELIC_ENABLED").unwrap_or_else(|_| "true".to_string()) == "true";
+
         Self {
             enabled,
             api_key,
@@ -59,7 +60,7 @@ pub fn init_tracing(config: &NewRelicConfig) -> Result<(), Box<dyn std::error::E
         environment = %config.environment,
         endpoint = %config.endpoint,
     );
-    
+
     Ok(())
 }
 
@@ -117,20 +118,22 @@ static SENSITIVE_PATTERNS: &[&str] = &[
     r#"(?i)"secret":\s*"[^"]+""#,
     r#"(?i)"authorization":\s*"[^"]+""#,
     r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", // Email addresses
-    r"\b\d{3}-\d{2}-\d{4}\b", // SSN pattern
-    r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b", // Credit card pattern
+    r"\b\d{3}-\d{2}-\d{4}\b",                               // SSN pattern
+    r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b",          // Credit card pattern
 ];
 
 /// Redact sensitive data from log messages
 pub fn redact_sensitive_data(input: &str) -> String {
     let mut result = input.to_string();
-    
+
     for pattern in SENSITIVE_PATTERNS {
         if let Ok(re) = regex::Regex::new(pattern) {
-            result = re.replace_all(&result, r#""[FIELD]": "[REDACTED]""#).to_string();
+            result = re
+                .replace_all(&result, r#""[FIELD]": "[REDACTED]""#)
+                .to_string();
         }
     }
-    
+
     result
 }
 
@@ -142,7 +145,7 @@ mod tests {
     fn test_sensitive_data_redaction() {
         let input = r#"{"password": "secret123", "email": "user@example.com", "token": "abc123"}"#;
         let redacted = redact_sensitive_data(input);
-        
+
         assert!(!redacted.contains("secret123"));
         assert!(!redacted.contains("user@example.com"));
         assert!(!redacted.contains("abc123"));
@@ -155,13 +158,13 @@ mod tests {
             env::set_var("NEW_RELIC_LICENSE_KEY", "test-key");
             env::set_var("NEW_RELIC_SERVICE_NAME", "test-service");
         }
-        
+
         let config = NewRelicConfig::from_env();
-        
+
         assert!(config.enabled);
         assert_eq!(config.api_key, Some("test-key".to_string()));
         assert_eq!(config.service_name, "test-service");
-        
+
         unsafe {
             env::remove_var("NEW_RELIC_LICENSE_KEY");
             env::remove_var("NEW_RELIC_SERVICE_NAME");

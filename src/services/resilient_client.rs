@@ -7,33 +7,33 @@
 //! - Comprehensive logging and metrics collection
 //! - Integration with New Relic monitoring
 
-use std::time::Duration;
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
-use prometheus::{CounterVec, HistogramVec, GaugeVec, Opts, Registry};
+use chrono::{DateTime, Utc};
+use prometheus::{CounterVec, GaugeVec, HistogramVec, Opts, Registry};
 use reqwest::Client;
-use tokio_retry::{strategy::ExponentialBackoff, Retry};
-use tracing::{error, warn, info};
-use chrono::{Utc, DateTime};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::Duration;
+use tokio_retry::{Retry, strategy::ExponentialBackoff};
+use tracing::{error, info, warn};
 
 /// Configuration for resilient HTTP client
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResilientClientConfig {
     /// Timeout for read operations (in seconds)
     pub read_timeout_seconds: u64,
-    
-    /// Timeout for write operations (in seconds) 
+
+    /// Timeout for write operations (in seconds)
     pub write_timeout_seconds: u64,
-    
+
     /// Connection timeout (in seconds)
     pub connect_timeout_seconds: u64,
-    
+
     /// Retry configuration
     pub retry: RetryConfig,
-    
+
     /// Circuit breaker configuration
     pub circuit_breaker: CircuitBreakerConfig,
-    
+
     /// Enable detailed logging
     pub enable_detailed_logging: bool,
 }
@@ -43,16 +43,16 @@ pub struct ResilientClientConfig {
 pub struct RetryConfig {
     /// Maximum number of retry attempts
     pub max_attempts: usize,
-    
+
     /// Initial retry delay in milliseconds
     pub initial_delay_ms: u64,
-    
+
     /// Maximum retry delay in milliseconds
     pub max_delay_ms: u64,
-    
+
     /// Jitter factor (0.0 to 1.0)
     pub jitter_factor: f64,
-    
+
     /// Retry on these HTTP status codes
     pub retry_on_status: Vec<u16>,
 }
@@ -62,10 +62,10 @@ pub struct RetryConfig {
 pub struct CircuitBreakerConfig {
     /// Failure threshold to open the circuit
     pub failure_threshold: usize,
-    
+
     /// Success threshold to close the circuit
     pub success_threshold: usize,
-    
+
     /// Timeout before attempting to close circuit (in seconds)
     pub timeout_seconds: u64,
 }
@@ -121,7 +121,7 @@ impl SimpleCircuitBreaker {
 
     pub fn on_success(&mut self) {
         self.failure_count = 0;
-        
+
         if self.state == CircuitBreakerState::HalfOpen {
             self.success_count += 1;
             if self.success_count >= self.config.success_threshold {
@@ -133,7 +133,7 @@ impl SimpleCircuitBreaker {
     pub fn on_failure(&mut self) {
         self.failure_count += 1;
         self.last_failure_time = Some(std::time::Instant::now());
-        
+
         if self.failure_count >= self.config.failure_threshold {
             self.state = CircuitBreakerState::Open;
         }
@@ -184,16 +184,16 @@ impl Default for CircuitBreakerConfig {
 pub struct ResilientClientMetrics {
     /// HTTP requests by destination, method, and outcome
     pub http_requests_total: CounterVec,
-    
+
     /// HTTP request duration by destination and method
     pub http_request_duration_seconds: HistogramVec,
-    
+
     /// Retry attempts by destination and reason
     pub retry_attempts_total: CounterVec,
-    
+
     /// Circuit breaker state by destination
     pub circuit_breaker_state: GaugeVec,
-    
+
     /// Timeout occurrences by destination and type
     pub timeouts_total: CounterVec,
 }
@@ -202,31 +202,46 @@ impl ResilientClientMetrics {
     /// Create new metrics collector
     pub fn new(registry: &Registry) -> Result<Self, prometheus::Error> {
         let http_requests_total = CounterVec::new(
-            Opts::new("resilient_http_requests_total", "Total resilient HTTP requests by destination, method, and outcome"),
-            &["destination", "method", "outcome"]
+            Opts::new(
+                "resilient_http_requests_total",
+                "Total resilient HTTP requests by destination, method, and outcome",
+            ),
+            &["destination", "method", "outcome"],
         )?;
-        
+
         let http_request_duration_seconds = HistogramVec::new(
             prometheus::HistogramOpts::new(
                 "resilient_http_request_duration_seconds",
-                "Duration of resilient HTTP requests"
-            ).buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]),
-            &["destination", "method"]
+                "Duration of resilient HTTP requests",
+            )
+            .buckets(vec![
+                0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+            ]),
+            &["destination", "method"],
         )?;
-        
+
         let retry_attempts_total = CounterVec::new(
-            Opts::new("resilient_http_retry_attempts_total", "Total retry attempts by destination and reason"),
-            &["destination", "reason"]
+            Opts::new(
+                "resilient_http_retry_attempts_total",
+                "Total retry attempts by destination and reason",
+            ),
+            &["destination", "reason"],
         )?;
-        
+
         let circuit_breaker_state = GaugeVec::new(
-            Opts::new("resilient_http_circuit_breaker_state", "Circuit breaker state (0=closed, 1=open, 2=half-open)"),
-            &["destination"]
+            Opts::new(
+                "resilient_http_circuit_breaker_state",
+                "Circuit breaker state (0=closed, 1=open, 2=half-open)",
+            ),
+            &["destination"],
         )?;
-        
+
         let timeouts_total = CounterVec::new(
-            Opts::new("resilient_http_timeouts_total", "Total timeouts by destination and type"),
-            &["destination", "timeout_type"]
+            Opts::new(
+                "resilient_http_timeouts_total",
+                "Total timeouts by destination and type",
+            ),
+            &["destination", "timeout_type"],
         )?;
 
         // Register all metrics
@@ -266,9 +281,15 @@ pub struct ResilientClient {
 
 impl ResilientClient {
     /// Create a new resilient HTTP client
-    pub fn new(config: ResilientClientConfig, metrics: Option<ResilientClientMetrics>) -> Result<Self, reqwest::Error> {
+    pub fn new(
+        config: ResilientClientConfig,
+        metrics: Option<ResilientClientMetrics>,
+    ) -> Result<Self, reqwest::Error> {
         let client = Client::builder()
-            .timeout(Duration::from_secs(std::cmp::max(config.read_timeout_seconds, config.write_timeout_seconds)))
+            .timeout(Duration::from_secs(std::cmp::max(
+                config.read_timeout_seconds,
+                config.write_timeout_seconds,
+            )))
             .connect_timeout(Duration::from_secs(config.connect_timeout_seconds))
             .build()?;
 
@@ -290,11 +311,16 @@ impl ResilientClient {
             start_time: Utc::now(),
         };
 
-        self.execute_request(url, None::<&()>, context, OperationType::Read).await
+        self.execute_request(url, None::<&()>, context, OperationType::Read)
+            .await
     }
 
     /// Execute an HTTP POST request with resilience patterns
-    pub async fn post<T: serde::Serialize + Send + Sync>(&mut self, url: &str, json: &T) -> Result<reqwest::Response, ResilientClientError> {
+    pub async fn post<T: serde::Serialize + Send + Sync>(
+        &mut self,
+        url: &str,
+        json: &T,
+    ) -> Result<reqwest::Response, ResilientClientError> {
         let context = RequestContext {
             destination: self.extract_destination(url),
             method: "POST".to_string(),
@@ -303,7 +329,8 @@ impl ResilientClient {
             start_time: Utc::now(),
         };
 
-        self.execute_request(url, Some(json), context, OperationType::Write).await
+        self.execute_request(url, Some(json), context, OperationType::Write)
+            .await
     }
 
     /// Extract destination (host) from URL for metrics and circuit breaker grouping
@@ -320,15 +347,15 @@ impl ResilientClient {
         json: Option<&T>,
         context: RequestContext,
         operation_type: OperationType,
-    ) -> Result<reqwest::Response, ResilientClientError>
-    {
+    ) -> Result<reqwest::Response, ResilientClientError> {
         let destination = &context.destination;
-        
+
         // Get or create circuit breaker for this destination
-        let circuit_breaker = self.circuit_breakers
+        let circuit_breaker = self
+            .circuit_breakers
             .entry(destination.clone())
             .or_insert_with(|| SimpleCircuitBreaker::new(self.config.circuit_breaker.clone()));
-        
+
         // Check circuit breaker first
         if !circuit_breaker.call_allowed() {
             self.record_circuit_breaker_state(destination, 1.0);
@@ -361,9 +388,11 @@ impl ResilientClient {
             .take(self.config.retry.max_attempts);
 
         let url = url.to_string();
-        let json_value = json.map(serde_json::to_value).transpose()
+        let json_value = json
+            .map(serde_json::to_value)
+            .transpose()
             .map_err(|e| ResilientClientError::SerializationError(e.to_string()))?;
-        
+
         let client = self.client.clone();
         let context_clone = context.clone();
         let config = self.config.clone();
@@ -374,24 +403,27 @@ impl ResilientClient {
             let json_value = json_value.clone();
             let context = context_clone.clone();
             let config = config.clone();
-            
+
             async move {
                 let start = std::time::Instant::now();
-                
+
                 // Build request
                 let request_builder = match json_value {
                     Some(ref value) => client.post(&url).json(value),
                     None => client.get(&url),
                 };
-                
+
                 // Execute request with timeout
                 let result = tokio::time::timeout(timeout, request_builder.send()).await;
-                
+
                 match result {
                     Ok(Ok(response)) => {
                         let duration = start.elapsed();
-                        
-                        if is_retry_status(response.status().as_u16(), &config.retry.retry_on_status) {
+
+                        if is_retry_status(
+                            response.status().as_u16(),
+                            &config.retry.retry_on_status,
+                        ) {
                             if config.enable_detailed_logging {
                                 warn!(
                                     destination = %context.destination,
@@ -402,7 +434,9 @@ impl ResilientClient {
                                     "Request failed with retryable status"
                                 );
                             }
-                            Err(ResilientClientError::RetryableStatus(response.status().as_u16()))
+                            Err(ResilientClientError::RetryableStatus(
+                                response.status().as_u16(),
+                            ))
                         } else {
                             if config.enable_detailed_logging {
                                 info!(
@@ -419,7 +453,7 @@ impl ResilientClient {
                     }
                     Ok(Err(e)) => {
                         let duration = start.elapsed();
-                        
+
                         if config.enable_detailed_logging {
                             error!(
                                 destination = %context.destination,
@@ -449,11 +483,11 @@ impl ResilientClient {
         })
         .await;
 
-        // Record metrics based on result  
+        // Record metrics based on result
         let final_duration = Duration::from_secs(
-            (Utc::now().timestamp() - context.start_time.timestamp()).max(0) as u64
+            (Utc::now().timestamp() - context.start_time.timestamp()).max(0) as u64,
         );
-        
+
         match &result {
             Ok(_response) => {
                 self.record_request_metrics(&context, "success", final_duration);
@@ -492,11 +526,17 @@ impl ResilientClient {
     /// Record request metrics
     fn record_request_metrics(&self, context: &RequestContext, outcome: &str, duration: Duration) {
         if let Some(metrics) = &self.metrics {
-            metrics.http_requests_total
-                .with_label_values(&[context.destination.as_str(), context.method.as_str(), outcome])
+            metrics
+                .http_requests_total
+                .with_label_values(&[
+                    context.destination.as_str(),
+                    context.method.as_str(),
+                    outcome,
+                ])
                 .inc();
-            
-            metrics.http_request_duration_seconds
+
+            metrics
+                .http_request_duration_seconds
                 .with_label_values(&[context.destination.as_str(), context.method.as_str()])
                 .observe(duration.as_secs_f64());
         }
@@ -505,7 +545,8 @@ impl ResilientClient {
     /// Record retry attempt
     fn record_retry_attempt(&self, context: &RequestContext, reason: &str) {
         if let Some(metrics) = &self.metrics {
-            metrics.retry_attempts_total
+            metrics
+                .retry_attempts_total
                 .with_label_values(&[context.destination.as_str(), reason])
                 .inc();
         }
@@ -518,7 +559,8 @@ impl ResilientClient {
                 OperationType::Read => "read",
                 OperationType::Write => "write",
             };
-            metrics.timeouts_total
+            metrics
+                .timeouts_total
                 .with_label_values(&[context.destination.as_str(), timeout_type])
                 .inc();
         }
@@ -527,7 +569,8 @@ impl ResilientClient {
     /// Record circuit breaker state
     fn record_circuit_breaker_state(&self, destination: &str, state: f64) {
         if let Some(metrics) = &self.metrics {
-            metrics.circuit_breaker_state
+            metrics
+                .circuit_breaker_state
                 .with_label_values(&[destination])
                 .set(state);
         }
@@ -551,19 +594,19 @@ fn is_retry_status(status: u16, retry_statuses: &[u16]) -> bool {
 pub enum ResilientClientError {
     #[error("Network error: {0}")]
     NetworkError(#[from] reqwest::Error),
-    
+
     #[error("Request timed out")]
     Timeout,
-    
+
     #[error("Circuit breaker is open")]
     CircuitBreakerOpen,
-    
+
     #[error("Retryable status code: {0}")]
     RetryableStatus(u16),
-    
+
     #[error("Service unavailable, fallback response: {0}")]
     Fallback(String),
-    
+
     #[error("Serialization error: {0}")]
     SerializationError(String),
 }
@@ -572,10 +615,18 @@ impl ResilientClientError {
     /// Get a user-friendly error message for API responses
     pub fn user_message(&self) -> String {
         match self {
-            ResilientClientError::NetworkError(_) => "Service temporarily unavailable due to network issues".to_string(),
-            ResilientClientError::Timeout => "Service temporarily unavailable due to timeout".to_string(),
-            ResilientClientError::CircuitBreakerOpen => "Service temporarily unavailable, please try again later".to_string(),
-            ResilientClientError::RetryableStatus(status) => format!("Service returned error status {status}, please try again"),
+            ResilientClientError::NetworkError(_) => {
+                "Service temporarily unavailable due to network issues".to_string()
+            }
+            ResilientClientError::Timeout => {
+                "Service temporarily unavailable due to timeout".to_string()
+            }
+            ResilientClientError::CircuitBreakerOpen => {
+                "Service temporarily unavailable, please try again later".to_string()
+            }
+            ResilientClientError::RetryableStatus(status) => {
+                format!("Service returned error status {status}, please try again")
+            }
             ResilientClientError::Fallback(msg) => msg.clone(),
             ResilientClientError::SerializationError(_) => "Invalid request data".to_string(),
         }
@@ -607,8 +658,11 @@ mod tests {
     fn test_extract_destination() {
         let config = ResilientClientConfig::default();
         let client = ResilientClient::new(config, None).unwrap();
-        
-        assert_eq!(client.extract_destination("https://api.example.com/path"), "api.example.com");
+
+        assert_eq!(
+            client.extract_destination("https://api.example.com/path"),
+            "api.example.com"
+        );
         assert_eq!(client.extract_destination("invalid_url"), "invalid_url");
     }
 
@@ -616,7 +670,7 @@ mod tests {
     fn test_error_user_messages() {
         let timeout_error = ResilientClientError::Timeout;
         assert!(timeout_error.user_message().contains("timeout"));
-        
+
         let circuit_error = ResilientClientError::CircuitBreakerOpen;
         assert!(circuit_error.user_message().contains("try again later"));
     }
@@ -625,19 +679,19 @@ mod tests {
     fn test_circuit_breaker() {
         let config = CircuitBreakerConfig::default();
         let mut cb = SimpleCircuitBreaker::new(config);
-        
+
         // Initially closed
         assert_eq!(cb.state(), &CircuitBreakerState::Closed);
         assert!(cb.call_allowed());
-        
+
         // Trigger failures to open circuit
         for _ in 0..5 {
             cb.on_failure();
         }
-        
+
         assert_eq!(cb.state(), &CircuitBreakerState::Open);
         assert!(!cb.call_allowed());
-        
+
         // Success should reset failure count but not close open circuit immediately
         cb.on_success();
         assert_eq!(cb.state(), &CircuitBreakerState::Open);

@@ -49,3 +49,28 @@ target/
 # End of https://www.toptal.com/developers/gitignore/api/macos,rust
 
 docker-cache
+
+# Development tools and temporary files
+.env
+.env.local
+.env.development
+
+# IDE files
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Log files
+*.log
+
+# Coverage reports
+coverage/
+*.profraw
+
+# Benchmark results
+criterion/

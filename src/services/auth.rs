@@ -1,14 +1,11 @@
 //! Authentication and authorization services.
 
-use crate::{
-    config::HmacConfig,
-    utils::hmac,
-};
+use crate::{config::HmacConfig, utils::hmac};
 use actix_web::{HttpRequest, HttpResponse};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// HMAC signature middleware for request validation
-/// 
+///
 /// This function validates HMAC signatures on incoming requests
 /// to ensure request integrity and authenticity.
 pub fn hmac_signature_middleware(
@@ -72,7 +69,7 @@ pub fn hmac_signature_middleware(
 }
 
 /// Add HMAC signature to outgoing response
-/// 
+///
 /// This function adds HMAC signatures to outgoing responses
 /// for response integrity verification.
 pub fn add_response_signature(

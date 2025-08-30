@@ -1,17 +1,17 @@
 //! OpenAPI specification generation and app factory.
 
-use paperclip::v2::models::{DefaultApiRaw, Info};
-use actix_web::App;
 use crate::{
-    config::{RateLimitConfig, SecurityHeadersConfig, MetricsConfig, HmacConfig},
-    services::{rate_limit::SimpleRateLimiter, AppMetrics, SuspiciousActivityTracker},
-    middleware::{SecurityHeaders, RequestIdMiddleware, MetricsMiddleware, McpMiddleware},
-    handlers::{health, version, get_metrics, login, validate_token, weather},
+    config::{HmacConfig, MetricsConfig, RateLimitConfig, SecurityHeadersConfig},
+    handlers::{get_metrics, health, login, validate_token, version, weather},
+    middleware::{McpMiddleware, MetricsMiddleware, RequestIdMiddleware, SecurityHeaders},
+    services::{AppMetrics, SuspiciousActivityTracker, rate_limit::SimpleRateLimiter},
 };
+use actix_web::App;
 use paperclip::actix::{OpenApiExt, web};
+use paperclip::v2::models::{DefaultApiRaw, Info};
 
 /// Creates the shared OpenAPI specification for the API
-/// 
+///
 /// This includes comprehensive documentation about HMAC signature authentication,
 /// available endpoints, and configuration options.
 pub fn create_openapi_spec() -> DefaultApiRaw {
@@ -75,7 +75,7 @@ pub fn create_openapi_spec() -> DefaultApiRaw {
 }
 
 /// Creates a basic app with shared configuration
-/// 
+///
 /// This factory function creates a pre-configured Actix Web application with:
 /// - Health and version endpoints
 /// - OpenAPI specification
@@ -84,7 +84,7 @@ pub fn create_openapi_spec() -> DefaultApiRaw {
 /// - Metrics collection
 /// - Authentication endpoints
 /// - MCP (Model Context Protocol) support
-/// 
+///
 /// This can be used both for testing and as a base for the main application.
 pub fn create_base_app() -> App<
     impl actix_web::dev::ServiceFactory<

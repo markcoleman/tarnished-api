@@ -2,12 +2,12 @@
 
 use crate::config::SecurityHeadersConfig;
 use actix_web::{
-    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    http::header::{HeaderName, HeaderValue},
     Error,
+    dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
+    http::header::{HeaderName, HeaderValue},
 };
 use std::{
-    future::{ready, Ready},
+    future::{Ready, ready},
     pin::Pin,
 };
 
@@ -96,11 +96,10 @@ where
             }
 
             // Content-Security-Policy
-            if config.csp_enabled {
-                if let Ok(value) = HeaderValue::from_str(&config.csp_directives) {
+            if config.csp_enabled
+                && let Ok(value) = HeaderValue::from_str(&config.csp_directives) {
                     headers.insert(HeaderName::from_static("content-security-policy"), value);
                 }
-            }
 
             // Strict-Transport-Security (HSTS)
             if config.hsts_enabled {

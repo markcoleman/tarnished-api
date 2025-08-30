@@ -23,8 +23,7 @@ impl Default for HmacConfig {
 impl HmacConfig {
     /// Load configuration from environment variables, falling back to defaults
     pub fn from_env() -> Self {
-        let secret = env::var("HMAC_SECRET")
-            .unwrap_or_else(|_| "default-secret-key".to_string());
+        let secret = env::var("HMAC_SECRET").unwrap_or_else(|_| "default-secret-key".to_string());
 
         let timestamp_tolerance_seconds = env::var("HMAC_TIMESTAMP_TOLERANCE")
             .ok()

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use uuid::Uuid;
 
 /// Context metadata for MCP-aware requests and responses
-/// 
+///
 /// This structure contains trace information, model versioning, and timing data
 /// that enables context-aware interactions between clients and the API.
 #[derive(Debug, Clone, Serialize, Deserialize, Apiv2Schema)]
@@ -40,7 +40,11 @@ impl ContextMetadata {
     }
 
     /// Create context metadata from request headers
-    pub fn from_headers(trace_id: Option<String>, client_id: Option<String>, correlation_id: Option<String>) -> Self {
+    pub fn from_headers(
+        trace_id: Option<String>,
+        client_id: Option<String>,
+        correlation_id: Option<String>,
+    ) -> Self {
         Self {
             trace_id: trace_id.unwrap_or_else(|| Uuid::new_v4().to_string()),
             model_version: env!("CARGO_PKG_VERSION").to_string(),
@@ -58,7 +62,7 @@ impl Default for ContextMetadata {
 }
 
 /// MCP-enhanced response wrapper
-/// 
+///
 /// This structure wraps standard API responses with optional MCP context metadata.
 /// When MCP context is not present, only the data is serialized directly, maintaining
 /// backward compatibility with REST clients.
@@ -135,7 +139,7 @@ impl<T> From<T> for McpResponse<T> {
 pub trait ToMcpResponse<T> {
     /// Convert to MCP response without context (REST mode)
     fn to_mcp_response(self) -> McpResponse<T>;
-    
+
     /// Convert to MCP response with context (MCP mode)
     fn to_mcp_response_with_context(self, context: ContextMetadata) -> McpResponse<T>;
 }
@@ -170,8 +174,12 @@ mod tests {
         let client_id = Some("test-client".to_string());
         let correlation_id = Some("corr-456".to_string());
 
-        let context = ContextMetadata::from_headers(trace_id.clone(), client_id.clone(), correlation_id.clone());
-        
+        let context = ContextMetadata::from_headers(
+            trace_id.clone(),
+            client_id.clone(),
+            correlation_id.clone(),
+        );
+
         assert_eq!(context.trace_id, "test-trace-123");
         assert_eq!(context.client_id, Some("test-client".to_string()));
         assert_eq!(context.correlation_id, Some("corr-456".to_string()));
@@ -179,16 +187,18 @@ mod tests {
 
     #[test]
     fn test_mcp_response_rest_serialization() {
-        let health = HealthResponse { status: "healthy".to_string() };
+        let health = HealthResponse {
+            status: "healthy".to_string(),
+        };
         let response = McpResponse::new(health);
-        
+
         assert!(!response.has_context());
         assert_eq!(response.data().status, "healthy");
-        
+
         // Test serialization - should serialize data directly for REST compatibility
         let json = serde_json::to_string(&response).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        
+
         // Should be direct field access, not wrapped in "data"
         assert_eq!(parsed["status"], "healthy");
         assert!(parsed.get("data").is_none());
@@ -197,17 +207,19 @@ mod tests {
 
     #[test]
     fn test_mcp_response_mcp_serialization() {
-        let health = HealthResponse { status: "healthy".to_string() };
+        let health = HealthResponse {
+            status: "healthy".to_string(),
+        };
         let context = ContextMetadata::new();
         let response = McpResponse::with_context(health, context.clone());
-        
+
         assert!(response.has_context());
         assert_eq!(response.data().status, "healthy");
-        
+
         // Test serialization - should include context wrapper for MCP clients
         let json = serde_json::to_string(&response).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        
+
         // Should be wrapped format
         assert_eq!(parsed["data"]["status"], "healthy");
         assert!(parsed["context"].is_object());
@@ -216,12 +228,14 @@ mod tests {
 
     #[test]
     fn test_to_mcp_response_trait() {
-        let health = HealthResponse { status: "healthy".to_string() };
-        
+        let health = HealthResponse {
+            status: "healthy".to_string(),
+        };
+
         // Test without context
         let response = health.clone().to_mcp_response();
         assert!(!response.has_context());
-        
+
         // Test with context
         let context = ContextMetadata::new();
         let response_with_context = health.to_mcp_response_with_context(context);
@@ -230,9 +244,11 @@ mod tests {
 
     #[test]
     fn test_from_conversion() {
-        let health = HealthResponse { status: "healthy".to_string() };
+        let health = HealthResponse {
+            status: "healthy".to_string(),
+        };
         let response: McpResponse<HealthResponse> = health.into();
-        
+
         assert!(!response.has_context());
         assert_eq!(response.data().status, "healthy");
     }
