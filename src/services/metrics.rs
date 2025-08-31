@@ -1,8 +1,6 @@
 //! Metrics collection and Prometheus integration service.
 
-use prometheus::{
-    CounterVec, Gauge, HistogramOpts, HistogramVec, Opts, Registry, TextEncoder,
-};
+use prometheus::{CounterVec, Gauge, HistogramOpts, HistogramVec, Opts, Registry, TextEncoder};
 use std::time::{Duration, Instant};
 
 /// Application metrics collector for Prometheus integration

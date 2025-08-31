@@ -3,8 +3,8 @@
 //! Provides environment-based configuration for the resilient HTTP client
 //! with sensible defaults for production use.
 
+use crate::services::resilient_client::{CircuitBreakerConfig, ResilientClientConfig, RetryConfig};
 use std::env;
-use crate::services::resilient_client::{ResilientClientConfig, RetryConfig, CircuitBreakerConfig};
 
 impl ResilientClientConfig {
     /// Load configuration from environment variables, falling back to defaults
@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn test_resilient_client_config_defaults() {
         let _lock = ENV_MUTEX.lock().unwrap();
-        
+
         // Clear any existing environment variables to ensure clean test
         unsafe {
             env::remove_var("RESILIENT_CLIENT_READ_TIMEOUT");
@@ -137,7 +137,7 @@ mod tests {
             env::remove_var("RESILIENT_CLIENT_CB_SUCCESS_THRESHOLD");
             env::remove_var("RESILIENT_CLIENT_CB_TIMEOUT_SECONDS");
         }
-        
+
         let config = ResilientClientConfig::from_env();
         assert_eq!(config.read_timeout_seconds, 1);
         assert_eq!(config.write_timeout_seconds, 5);
@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn test_resilient_client_config_from_env() {
         let _lock = ENV_MUTEX.lock().unwrap();
-        
+
         unsafe {
             env::set_var("RESILIENT_CLIENT_READ_TIMEOUT", "2");
             env::set_var("RESILIENT_CLIENT_WRITE_TIMEOUT", "10");
@@ -159,7 +159,7 @@ mod tests {
             env::set_var("RESILIENT_CLIENT_RETRY_MAX_ATTEMPTS", "5");
             env::set_var("RESILIENT_CLIENT_CB_FAILURE_THRESHOLD", "10");
         }
-        
+
         let config = ResilientClientConfig::from_env();
         assert_eq!(config.read_timeout_seconds, 2);
         assert_eq!(config.write_timeout_seconds, 10);
@@ -167,7 +167,7 @@ mod tests {
         assert!(!config.enable_detailed_logging);
         assert_eq!(config.retry.max_attempts, 5);
         assert_eq!(config.circuit_breaker.failure_threshold, 10);
-        
+
         // Clean up
         unsafe {
             env::remove_var("RESILIENT_CLIENT_READ_TIMEOUT");
@@ -182,14 +182,14 @@ mod tests {
     #[test]
     fn test_retry_status_codes_parsing() {
         let _lock = ENV_MUTEX.lock().unwrap();
-        
+
         unsafe {
             env::set_var("RESILIENT_CLIENT_RETRY_ON_STATUS", "500,502,503");
         }
-        
+
         let config = RetryConfig::from_env();
         assert_eq!(config.retry_on_status, vec![500, 502, 503]);
-        
+
         unsafe {
             env::remove_var("RESILIENT_CLIENT_RETRY_ON_STATUS");
         }

@@ -3,7 +3,7 @@
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     http::header::{HeaderName, HeaderValue},
-    HttpMessage, Error,
+    Error, HttpMessage,
 };
 use std::{
     future::{ready, Ready},
@@ -12,7 +12,7 @@ use std::{
 use uuid::Uuid;
 
 /// Request ID middleware factory
-/// 
+///
 /// This middleware ensures every request has a unique ID for tracing purposes.
 /// It will use an existing X-Request-ID header if present, or generate a new UUID.
 pub struct RequestIdMiddleware;
@@ -53,7 +53,7 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let start_time = std::time::Instant::now();
-        
+
         // Extract or generate Request ID
         let request_id = req
             .headers()

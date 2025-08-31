@@ -1,11 +1,11 @@
-use actix_web::{App, http::StatusCode, test};
-use paperclip::actix::{OpenApiExt, web};
+use actix_web::{http::StatusCode, test, App};
+use paperclip::actix::{web, OpenApiExt};
 use std::env;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tarnished_api::{
-    AppMetrics, MetricsConfig, RateLimitConfig, SimpleRateLimiter, create_base_app,
-    create_openapi_spec, get_metrics, health, hmac_utils, version,
+    create_base_app, create_openapi_spec, get_metrics, health, hmac_utils, version, AppMetrics,
+    MetricsConfig, RateLimitConfig, SimpleRateLimiter,
 };
 
 // Mutex to synchronize tests that modify environment variables
@@ -549,7 +549,7 @@ async fn test_hmac_middleware_invalid_signature() {
 async fn test_response_signature_functionality() {
     use actix_web::HttpResponse;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use tarnished_api::{HmacConfig, add_response_signature, hmac_utils};
+    use tarnished_api::{add_response_signature, hmac_utils, HmacConfig};
 
     let config = HmacConfig {
         secret: "test-secret".to_string(),

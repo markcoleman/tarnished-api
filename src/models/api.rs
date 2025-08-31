@@ -22,7 +22,7 @@ pub struct VersionResponse {
 pub struct WeatherQuery {
     /// ZIP code (e.g., "90210")
     pub zip: Option<String>,
-    /// Latitude coordinate 
+    /// Latitude coordinate
     pub lat: Option<f64>,
     /// Longitude coordinate
     pub lon: Option<f64>,

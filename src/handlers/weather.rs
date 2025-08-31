@@ -2,19 +2,19 @@
 
 use crate::{
     config::HmacConfig,
-    models::{WeatherQuery, WeatherResponse, McpResponse},
+    middleware::extract_mcp_context,
+    models::{McpResponse, WeatherQuery, WeatherResponse},
     services::{
-        auth::hmac_signature_middleware, 
+        auth::hmac_signature_middleware,
         rate_limit::{rate_limit_middleware, SimpleRateLimiter},
         weather::WeatherService,
     },
-    middleware::extract_mcp_context,
 };
 use actix_web::{web, Error, HttpRequest, Result};
 use paperclip::actix::api_v2_operation;
 
 /// Weather endpoint
-/// 
+///
 /// Returns current weather information as an emoji for a given location.
 /// Accepts either ZIP code or latitude/longitude coordinates.
 /// For MCP-aware clients, the response will include context metadata.
@@ -111,22 +111,29 @@ pub async fn weather(
 
 /// Helper function to get weather by ZIP code
 async fn get_weather_by_zip(zip: &str) -> Result<(String, String, String), Error> {
-    let mut weather_service = WeatherService::new()
-        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Weather service initialization failed: {e}")))?;
-    
-    weather_service.get_weather_by_zip(zip).await
-        .map_err(|e| {
-            tracing::error!("Weather API error for ZIP {}: {}", zip, e);
-            actix_web::error::ErrorInternalServerError("Weather service temporarily unavailable")
-        })
+    let mut weather_service = WeatherService::new().map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!(
+            "Weather service initialization failed: {e}"
+        ))
+    })?;
+
+    weather_service.get_weather_by_zip(zip).await.map_err(|e| {
+        tracing::error!("Weather API error for ZIP {}: {}", zip, e);
+        actix_web::error::ErrorInternalServerError("Weather service temporarily unavailable")
+    })
 }
 
 /// Helper function to get weather by coordinates
 async fn get_weather_by_coords(lat: f64, lon: f64) -> Result<(String, String, String), Error> {
-    let mut weather_service = WeatherService::new()
-        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Weather service initialization failed: {e}")))?;
-    
-    weather_service.get_weather_by_coords(lat, lon).await
+    let mut weather_service = WeatherService::new().map_err(|e| {
+        actix_web::error::ErrorInternalServerError(format!(
+            "Weather service initialization failed: {e}"
+        ))
+    })?;
+
+    weather_service
+        .get_weather_by_coords(lat, lon)
+        .await
         .map_err(|e| {
             tracing::error!("Weather API error for coords ({}, {}): {}", lat, lon, e);
             actix_web::error::ErrorInternalServerError("Weather service temporarily unavailable")

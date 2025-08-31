@@ -12,7 +12,7 @@ use std::{
 };
 
 /// Metrics middleware factory
-/// 
+///
 /// This middleware automatically records request metrics including
 /// response times, status codes, and request counts.
 pub struct MetricsMiddleware;
@@ -75,7 +75,7 @@ where
 }
 
 /// Function-based metrics middleware for manual use
-/// 
+///
 /// This function can be called manually from handlers to record metrics
 /// when the automatic middleware is not suitable.
 pub fn metrics_middleware(

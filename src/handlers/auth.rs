@@ -2,8 +2,8 @@
 
 use crate::{
     models::{
+        audit::{AuthAuditEvent, AuthEventOutcome, AuthEventType},
         auth::{LoginRequest, LoginResponse, TokenValidationRequest, TokenValidationResponse},
-        audit::{AuthAuditEvent, AuthEventType, AuthEventOutcome},
     },
     utils::http::{extract_client_ip, extract_user_agent},
 };
@@ -12,7 +12,7 @@ use paperclip::actix::api_v2_operation;
 use uuid::Uuid;
 
 /// User login endpoint
-/// 
+///
 /// Authenticates users with username/password and returns an access token.
 /// This is a mock implementation - real applications should use proper
 /// password hashing and database authentication.
@@ -85,7 +85,7 @@ pub async fn login(
 }
 
 /// Token validation endpoint
-/// 
+///
 /// Validates access tokens and returns user information if valid.
 /// This is a mock implementation - real applications should use
 /// proper JWT validation or database token verification.

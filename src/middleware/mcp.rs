@@ -19,7 +19,7 @@ use std::{
 pub const MCP_CONTEXT_KEY: &str = "mcp_context";
 
 /// MCP middleware factory
-/// 
+///
 /// This middleware detects MCP-aware requests by checking for specific headers
 /// and stores context information in request extensions for use by handlers.
 pub struct McpMiddleware;
@@ -66,38 +66,38 @@ where
         Box::pin(async move {
             // Check for MCP headers to detect MCP-aware requests
             let headers = req.headers();
-            
+
             // Look for MCP-specific headers
             let has_mcp_context = headers.get("X-MCP-Context").is_some();
             let has_mcp_client = headers.get("X-Client").is_some();
             let has_trace_id = headers.get("X-Trace-ID").is_some();
-            
+
             // Determine if this is an MCP-aware request
             let is_mcp_request = has_mcp_context || has_mcp_client || has_trace_id;
-            
+
             if is_mcp_request {
                 // Extract context information from headers
                 let trace_id = headers
                     .get("X-Trace-ID")
                     .and_then(|h| h.to_str().ok())
                     .map(|s| s.to_string());
-                
+
                 let client_id = headers
                     .get("X-Client")
                     .and_then(|h| h.to_str().ok())
                     .map(|s| s.to_string());
-                
+
                 let correlation_id = headers
                     .get("X-Correlation-ID")
                     .and_then(|h| h.to_str().ok())
                     .map(|s| s.to_string());
-                
+
                 // Create context metadata
                 let context = ContextMetadata::from_headers(trace_id, client_id, correlation_id);
-                
+
                 // Store context in request extensions for handlers to use
                 req.extensions_mut().insert(context);
-                
+
                 tracing::debug!(
                     trace_id = %req.extensions().get::<ContextMetadata>()
                         .map(|c| c.trace_id.as_str())
@@ -112,7 +112,7 @@ where
 
             // Call the next service
             let res = service.call(req).await?;
-            
+
             // Note: Response wrapping is handled by individual handlers
             // using the context stored in request extensions
             Ok(res)
@@ -138,9 +138,7 @@ pub fn extract_mcp_context(req: &actix_web::HttpRequest) -> Option<ContextMetada
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{
-        test, web, App, HttpResponse, HttpRequest,
-    };
+    use actix_web::{test, web, App, HttpRequest, HttpResponse};
 
     async fn test_handler(req: HttpRequest) -> HttpResponse {
         let context = extract_mcp_context(&req);
@@ -156,12 +154,13 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .wrap(McpMiddleware)
-                .route("/test", web::get().to(test_handler))
-        ).await;
+                .route("/test", web::get().to(test_handler)),
+        )
+        .await;
 
         let req = test::TestRequest::get().uri("/test").to_request();
         let resp = test::call_service(&app, req).await;
-        
+
         assert!(resp.status().is_success());
         let body: serde_json::Value = test::read_body_json(resp).await;
         assert_eq!(body["mcp"], false);
@@ -172,15 +171,16 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .wrap(McpMiddleware)
-                .route("/test", web::get().to(test_handler))
-        ).await;
+                .route("/test", web::get().to(test_handler)),
+        )
+        .await;
 
         let req = test::TestRequest::get()
             .uri("/test")
             .insert_header(("X-MCP-Context", "true"))
             .to_request();
         let resp = test::call_service(&app, req).await;
-        
+
         assert!(resp.status().is_success());
         let body: serde_json::Value = test::read_body_json(resp).await;
         assert_eq!(body["mcp"], true);
@@ -191,15 +191,16 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .wrap(McpMiddleware)
-                .route("/test", web::get().to(test_handler))
-        ).await;
+                .route("/test", web::get().to(test_handler)),
+        )
+        .await;
 
         let req = test::TestRequest::get()
             .uri("/test")
             .insert_header(("X-Client", "test-client"))
             .to_request();
         let resp = test::call_service(&app, req).await;
-        
+
         assert!(resp.status().is_success());
         let body: serde_json::Value = test::read_body_json(resp).await;
         assert_eq!(body["mcp"], true);
@@ -210,15 +211,16 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .wrap(McpMiddleware)
-                .route("/test", web::get().to(test_handler))
-        ).await;
+                .route("/test", web::get().to(test_handler)),
+        )
+        .await;
 
         let req = test::TestRequest::get()
             .uri("/test")
             .insert_header(("X-Trace-ID", "test-trace-123"))
             .to_request();
         let resp = test::call_service(&app, req).await;
-        
+
         assert!(resp.status().is_success());
         let body: serde_json::Value = test::read_body_json(resp).await;
         assert_eq!(body["mcp"], true);
@@ -226,21 +228,21 @@ mod tests {
 
     #[actix_web::test]
     async fn test_context_extraction() {
-        let app = test::init_service(
-            App::new()
-                .wrap(McpMiddleware)
-                .route("/test", web::get().to(|req: HttpRequest| async move {
-                    let context = extract_mcp_context(&req);
-                    match context {
-                        Some(ctx) => HttpResponse::Ok().json(serde_json::json!({
-                            "trace_id": ctx.trace_id,
-                            "client_id": ctx.client_id,
-                            "correlation_id": ctx.correlation_id
-                        })),
-                        None => HttpResponse::Ok().json(serde_json::json!({"context": null}))
-                    }
-                }))
-        ).await;
+        let app = test::init_service(App::new().wrap(McpMiddleware).route(
+            "/test",
+            web::get().to(|req: HttpRequest| async move {
+                let context = extract_mcp_context(&req);
+                match context {
+                    Some(ctx) => HttpResponse::Ok().json(serde_json::json!({
+                        "trace_id": ctx.trace_id,
+                        "client_id": ctx.client_id,
+                        "correlation_id": ctx.correlation_id
+                    })),
+                    None => HttpResponse::Ok().json(serde_json::json!({"context": null})),
+                }
+            }),
+        ))
+        .await;
 
         let req = test::TestRequest::get()
             .uri("/test")
@@ -249,7 +251,7 @@ mod tests {
             .insert_header(("X-Correlation-ID", "corr-456"))
             .to_request();
         let resp = test::call_service(&app, req).await;
-        
+
         assert!(resp.status().is_success());
         let body: serde_json::Value = test::read_body_json(resp).await;
         assert_eq!(body["trace_id"], "test-trace-123");

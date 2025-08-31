@@ -3,21 +3,21 @@
 use actix_web::HttpRequest;
 
 /// Extract client IP address from request headers
-/// 
+///
 /// Attempts to extract the real client IP from various proxy headers,
 /// falling back to the connection remote address.
 pub fn extract_client_ip(req: &HttpRequest) -> String {
     // Check for common proxy headers in order of preference
     let ip_headers = [
         "X-Forwarded-For",
-        "X-Real-IP", 
-        "CF-Connecting-IP",  // Cloudflare
+        "X-Real-IP",
+        "CF-Connecting-IP", // Cloudflare
         "X-Cluster-Client-IP",
         "X-Forwarded",
         "Forwarded-For",
-        "Forwarded"
+        "Forwarded",
     ];
-    
+
     for header_name in &ip_headers {
         if let Some(header_value) = req.headers().get(*header_name) {
             if let Ok(header_str) = header_value.to_str() {
@@ -29,9 +29,10 @@ pub fn extract_client_ip(req: &HttpRequest) -> String {
             }
         }
     }
-    
+
     // Fall back to connection remote address
-    req.connection_info().peer_addr()
+    req.connection_info()
+        .peer_addr()
         .unwrap_or("unknown")
         .to_string()
 }

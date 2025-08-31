@@ -4,6 +4,46 @@
 
 Tarnished API is a simple HTTP API built in Rust using [Actix-web](https://actix.rs) and [Paperclip](https://github.com/wafflespeanut/paperclip). This repository demonstrates how to create a well-documented REST API with automatic OpenAPI specification generation, integrated health-check endpoints, and a beautifully styled index page that displays the OpenAPI spec in a user-friendly format.
 
+## 🚀 Quick Start
+
+### For Users
+```bash
+# Using Docker
+docker run -p 8080:8080 ghcr.io/markcoleman/tarnished-api:latest
+
+# Or build locally
+git clone https://github.com/markcoleman/tarnished-api.git
+cd tarnished-api
+cargo run
+```
+
+Then visit http://localhost:8080 for the API documentation or try:
+```bash
+curl http://localhost:8080/api/health
+curl "http://localhost:8080/api/weather?zip=90210"
+```
+
+### For Developers
+```bash
+# Clone and setup development environment
+git clone https://github.com/markcoleman/tarnished-api.git
+cd tarnished-api
+
+# Install just task runner (recommended)
+cargo install just
+
+# Setup development tools
+just setup
+
+# Start development server with auto-reload
+just dev
+
+# Run all quality checks
+just check-all
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development setup and workflow.
+
 ## Features
 
 - **Health Check Endpoint:**  

@@ -9,7 +9,7 @@ use std::{
 };
 
 /// Simple in-memory rate limiter
-/// 
+///
 /// This implementation uses a sliding window approach to track requests
 /// per IP address and enforce rate limits.
 #[derive(Clone)]
@@ -28,7 +28,7 @@ impl SimpleRateLimiter {
     }
 
     /// Check if the given key (typically IP address) is within rate limits
-    /// 
+    ///
     /// Returns `true` if the request should be allowed, `false` if rate limited.
     pub fn check_rate_limit(&self, key: &str) -> bool {
         let mut storage = self.storage.lock().unwrap();
@@ -65,7 +65,7 @@ impl SimpleRateLimiter {
 }
 
 /// Rate limiting middleware using a function-based approach
-/// 
+///
 /// This function checks if the requesting IP is within rate limits
 /// and returns an error response if the limit is exceeded.
 pub fn rate_limit_middleware(

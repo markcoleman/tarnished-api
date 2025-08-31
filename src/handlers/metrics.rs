@@ -1,14 +1,11 @@
 //! Metrics endpoint handler.
 
-use crate::{
-    config::MetricsConfig,
-    services::AppMetrics,
-};
+use crate::{config::MetricsConfig, services::AppMetrics};
 use actix_web::{web, Error, HttpRequest, HttpResponse, Result};
 use paperclip::actix::api_v2_operation;
 
 /// Prometheus metrics endpoint
-/// 
+///
 /// Returns Prometheus-formatted metrics for monitoring API performance
 /// and usage patterns. This endpoint is typically scraped by monitoring systems.
 #[api_v2_operation(

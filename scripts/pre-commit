@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Pre-commit hook for Tarnished API
+#
+# This hook runs basic quality checks before allowing a commit.
+# To install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# Check if justfile exists and use it, otherwise fall back to cargo commands
+if command -v just >/dev/null 2>&1 && [ -f justfile ]; then
+    echo "📏 Checking code formatting..."
+    just fmt-check
+
+    echo "🔍 Running clippy linter..."
+    just lint
+
+    echo "🧪 Running tests..."
+    just test
+else
+    echo "📏 Checking code formatting..."
+    if ! cargo fmt --check; then
+        echo "❌ Code formatting check failed. Run 'cargo fmt' to fix."
+        exit 1
+    fi
+
+    echo "🔍 Running clippy linter..."
+    if ! cargo clippy -- -D warnings; then
+        echo "❌ Clippy linting failed. Fix the warnings above."
+        exit 1
+    fi
+
+    echo "🧪 Running tests..."
+    if ! cargo test; then
+        echo "❌ Tests failed. Fix the failing tests."
+        exit 1
+    fi
+fi
+
+echo "✅ All pre-commit checks passed!"

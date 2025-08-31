@@ -1,6 +1,8 @@
 //! Weather service for fetching current weather data and converting to emojis.
 
-use crate::services::resilient_client::{ResilientClient, ResilientClientConfig, ResilientClientError};
+use crate::services::resilient_client::{
+    ResilientClient, ResilientClientConfig, ResilientClientError,
+};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -36,7 +38,7 @@ impl WeatherService {
     pub fn new() -> Result<Self, String> {
         let api_key = std::env::var("OPENWEATHER_API_KEY")
             .map_err(|_| "OPENWEATHER_API_KEY environment variable is required")?;
-        
+
         let base_url = std::env::var("OPENWEATHER_BASE_URL")
             .unwrap_or_else(|_| "https://api.openweathermap.org/data/2.5".to_string());
 
@@ -52,33 +54,56 @@ impl WeatherService {
     }
 
     /// Fetch weather data by ZIP code
-    pub async fn get_weather_by_zip(&mut self, zip: &str) -> Result<(String, String, String), String> {
-        let url = format!("{}/weather?zip={}&appid={}&units=metric", 
-                         self.base_url, zip, self.api_key);
+    pub async fn get_weather_by_zip(
+        &mut self,
+        zip: &str,
+    ) -> Result<(String, String, String), String> {
+        let url = format!(
+            "{}/weather?zip={}&appid={}&units=metric",
+            self.base_url, zip, self.api_key
+        );
         self.fetch_weather(&url).await
     }
 
     /// Fetch weather data by latitude and longitude
-    pub async fn get_weather_by_coords(&mut self, lat: f64, lon: f64) -> Result<(String, String, String), String> {
-        let url = format!("{}/weather?lat={}&lon={}&appid={}&units=metric", 
-                         self.base_url, lat, lon, self.api_key);
+    pub async fn get_weather_by_coords(
+        &mut self,
+        lat: f64,
+        lon: f64,
+    ) -> Result<(String, String, String), String> {
+        let url = format!(
+            "{}/weather?lat={}&lon={}&appid={}&units=metric",
+            self.base_url, lat, lon, self.api_key
+        );
         self.fetch_weather(&url).await
     }
 
     /// Internal method to fetch and parse weather data
     async fn fetch_weather(&mut self, url: &str) -> Result<(String, String, String), String> {
-        let response = self.client.get(url).await
-            .map_err(|e: ResilientClientError| format!("Weather API request failed: {}", e.user_message()))?;
+        let response = self
+            .client
+            .get(url)
+            .await
+            .map_err(|e: ResilientClientError| {
+                format!("Weather API request failed: {}", e.user_message())
+            })?;
 
         if !response.status().is_success() {
-            return Err(format!("Weather API returned status: {}", response.status()));
+            return Err(format!(
+                "Weather API returned status: {}",
+                response.status()
+            ));
         }
 
-        let weather_data: OpenWeatherResponse = response.json().await
+        let weather_data: OpenWeatherResponse = response
+            .json()
+            .await
             .map_err(|e| format!("Failed to parse weather data: {e}"))?;
 
         let location = self.format_location(&weather_data);
-        let weather_condition = weather_data.weather.first()
+        let weather_condition = weather_data
+            .weather
+            .first()
             .map(|w| w.main.clone())
             .unwrap_or_else(|| "Unknown".to_string());
         let emoji = self.weather_to_emoji(&weather_condition);
@@ -99,7 +124,8 @@ impl WeatherService {
     /// Convert weather condition to emoji
     fn weather_to_emoji(&self, condition: &str) -> String {
         let weather_emojis = self.get_weather_emoji_map();
-        weather_emojis.get(&condition.to_lowercase())
+        weather_emojis
+            .get(&condition.to_lowercase())
             .unwrap_or(&"🌫️".to_string())
             .clone()
     }
@@ -166,7 +192,13 @@ mod tests {
             sys: None,
         };
 
-        assert_eq!(service.format_location(&data_with_country), "Los Angeles, US");
-        assert_eq!(service.format_location(&data_without_country), "Los Angeles");
+        assert_eq!(
+            service.format_location(&data_with_country),
+            "Los Angeles, US"
+        );
+        assert_eq!(
+            service.format_location(&data_without_country),
+            "Los Angeles"
+        );
     }
 }

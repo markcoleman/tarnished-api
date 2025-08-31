@@ -2,15 +2,18 @@
 
 use crate::{
     config::HmacConfig,
-    models::{VersionResponse, McpResponse},
-    services::{auth::hmac_signature_middleware, rate_limit::{rate_limit_middleware, SimpleRateLimiter}},
     middleware::extract_mcp_context,
+    models::{McpResponse, VersionResponse},
+    services::{
+        auth::hmac_signature_middleware,
+        rate_limit::{rate_limit_middleware, SimpleRateLimiter},
+    },
 };
 use actix_web::{web, Error, HttpRequest, Result};
 use paperclip::actix::api_v2_operation;
 
 /// Version information endpoint
-/// 
+///
 /// Returns the current API version, commit hash, and build time.
 /// This endpoint includes rate limiting and optional HMAC signature validation.
 /// For MCP-aware clients, the response will include context metadata.

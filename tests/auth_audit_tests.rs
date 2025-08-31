@@ -1,7 +1,7 @@
 use actix_web::{http::StatusCode, test};
 use tarnished_api::{
-    AuthAuditEvent, AuthEventOutcome, AuthEventType, LoginRequest, LoginResponse,
-    TokenValidationRequest, TokenValidationResponse, create_base_app,
+    create_base_app, AuthAuditEvent, AuthEventOutcome, AuthEventType, LoginRequest, LoginResponse,
+    TokenValidationRequest, TokenValidationResponse,
 };
 
 #[actix_web::test]
@@ -181,7 +181,10 @@ async fn test_audit_event_creation() {
     assert_eq!(event.endpoint, "/auth/login");
     assert_eq!(event.user_id, Some("test_user".to_string()));
     assert_eq!(event.user_agent, Some("Test Agent".to_string()));
-    assert_eq!(event.additional_context, Some("Test login event".to_string()));
+    assert_eq!(
+        event.additional_context,
+        Some("Test login event".to_string())
+    );
 
     // Verify event can be serialized to JSON
     let json = serde_json::to_string(&event).expect("Should serialize to JSON");

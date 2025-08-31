@@ -71,7 +71,7 @@ pub struct LogStatistics {
     pub time_range: TimeRangeInternal,
 }
 
-/// Internal time range using DateTime 
+/// Internal time range using DateTime
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeRangeInternal {
     pub start: DateTime<Utc>,

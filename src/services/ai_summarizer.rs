@@ -1,7 +1,7 @@
 //! AI-powered log summarization service.
 
 use crate::models::logs::{
-    AiSummarizerConfig, ErrorAnalysis, ErrorStat, EndpointStat, LogStatistics, LogSummaryResponse,
+    AiSummarizerConfig, EndpointStat, ErrorAnalysis, ErrorStat, LogStatistics, LogSummaryResponse,
     SummaryMetadata, TrafficAnalysis, UserAgentStat,
 };
 use crate::services::resilient_client::{ResilientClient, ResilientClientConfig};
@@ -80,13 +80,21 @@ impl AiSummarizer {
 
     /// Generate summary using OpenAI API
     async fn generate_openai_summary(&self, statistics: &LogStatistics) -> Result<String, String> {
-        let _client = self.client.as_ref()
+        let _client = self
+            .client
+            .as_ref()
             .ok_or("HTTP client not initialized for OpenAI")?;
 
-        let api_key = self.config.api_key.as_ref()
+        let api_key = self
+            .config
+            .api_key
+            .as_ref()
             .ok_or("OpenAI API key not configured")?;
 
-        let base_url = self.config.base_url.as_deref()
+        let base_url = self
+            .config
+            .base_url
+            .as_deref()
             .unwrap_or("https://api.openai.com/v1");
 
         // Build prompt with log statistics
@@ -109,7 +117,7 @@ impl AiSummarizer {
         });
 
         let url = format!("{base_url}/chat/completions");
-        
+
         // Use reqwest directly for OpenAI API call since ResilientClient doesn't support headers
         let http_client = reqwest::Client::new();
         let response = http_client
@@ -127,7 +135,9 @@ impl AiSummarizer {
             return Err(format!("OpenAI API error {status}: {text}"));
         }
 
-        let response_data: Value = response.json().await
+        let response_data: Value = response
+            .json()
+            .await
             .map_err(|e| format!("Failed to parse OpenAI response: {e}"))?;
 
         let summary = response_data
@@ -191,7 +201,7 @@ impl AiSummarizer {
     /// Build AI prompt from log statistics
     fn build_ai_prompt(&self, statistics: &LogStatistics) -> String {
         let hours = (statistics.time_range.end - statistics.time_range.start).num_hours();
-        
+
         format!(
             "Analyze the following API traffic data for the last {hours} hours and provide a concise summary:\n\n\
             Total Requests: {total_requests}\n\
@@ -206,7 +216,11 @@ impl AiSummarizer {
             successful_requests = statistics.successful_requests,
             error_requests = statistics.error_requests,
             unique_ips = statistics.unique_ips,
-            top_endpoints = statistics.top_endpoints.iter().take(3).collect::<HashMap<_, _>>(),
+            top_endpoints = statistics
+                .top_endpoints
+                .iter()
+                .take(3)
+                .collect::<HashMap<_, _>>(),
             error_breakdown = statistics.error_breakdown
         )
     }
@@ -387,7 +401,7 @@ mod tests {
 
         let endpoint_stats = summarizer.build_endpoint_stats(&statistics);
         assert!(!endpoint_stats.is_empty());
-        
+
         // Should be sorted by count (descending)
         assert_eq!(endpoint_stats[0].endpoint, "/api/health");
         assert_eq!(endpoint_stats[0].count, 100);
@@ -413,7 +427,10 @@ mod tests {
 
         assert_eq!(summarizer.get_status_description(400), "Bad Request");
         assert_eq!(summarizer.get_status_description(401), "Unauthorized");
-        assert_eq!(summarizer.get_status_description(500), "Internal Server Error");
+        assert_eq!(
+            summarizer.get_status_description(500),
+            "Internal Server Error"
+        );
         assert_eq!(summarizer.get_status_description(999), "HTTP 999");
     }
 }
