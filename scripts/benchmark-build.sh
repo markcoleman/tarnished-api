@@ -1,12 +1,16 @@
 #!/bin/bash
 
-# Benchmark build performance script
-# This script demonstrates the performance improvements made to the build process
+# Benchmark build performance script for local development
+# This script demonstrates the performance improvements for local builds using incremental compilation
+# Note: CI uses sccache instead of incremental compilation for distributed caching
 
 set -e
 
-echo "🚀 GitHub Actions Performance Optimization Benchmark"
-echo "================================================="
+echo "🚀 Local Build Performance Benchmark"
+echo "===================================="
+echo ""
+echo "Note: This script tests incremental compilation for local development."
+echo "      CI uses sccache for distributed caching across workflow runs."
 echo ""
 
 # Clean build directory
@@ -14,13 +18,14 @@ echo "🧹 Cleaning build directory..."
 cargo clean
 
 echo ""
-echo "📊 Testing build performance with optimizations:"
+echo "📊 Testing local build performance with incremental compilation:"
 echo ""
 
 # Test incremental build
-echo "1️⃣  Testing incremental build..."
+echo "1️⃣  Testing incremental build (local development)..."
 export CARGO_INCREMENTAL=1
 export CARGO_NET_RETRY=10
+echo "- CARGO_INCREMENTAL=1 for faster local incremental builds"
 
 start_time=$(date +%s)
 cargo build --verbose > /dev/null 2>&1

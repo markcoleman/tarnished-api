@@ -25,18 +25,20 @@ strategy:
 
 **Impact**: Reduces total CI time from ~3x single job time to single job time.
 
-### 2. Incremental Compilation
+### 2. Compilation Caching with sccache
 
 **Added global environment variables**:
-- `CARGO_INCREMENTAL=1`: Enables incremental compilation
 - `CARGO_NET_RETRY=10`: Improves reliability
-- `RUSTC_WRAPPER=sccache`: Enables compilation caching
+- `RUSTC_WRAPPER=sccache`: Enables distributed compilation caching
+- `SCCACHE_GHA_ENABLED=true`: Uses GitHub Actions cache backend
+
+**Note**: sccache provides distributed caching across workflow runs and is more effective than incremental compilation in CI environments. These two approaches are mutually exclusive.
 
 **Performance gains**:
 - Initial build: ~1m 12s
-- Incremental rebuild: ~4.6s (93% faster)
-- Incremental tests: ~16s (78% faster)
-- Incremental clippy: ~3.6s (94% faster)
+- Cached rebuild: ~4.6s (93% faster)
+- Cached tests: ~16s (78% faster)  
+- Cached clippy: ~3.6s (94% faster)
 
 ### 3. Smart Cache Strategy
 
@@ -70,7 +72,7 @@ if: needs.changes.outputs.docs-only != 'true'
 ### 5. Docker Build Optimizations
 
 **Dockerfile improvements**:
-- Enable incremental compilation in Docker builds
+- Enable incremental compilation in Docker builds (isolated from CI sccache)
 - Pre-build dependencies in separate layer
 - Better layer caching strategy
 
@@ -81,6 +83,8 @@ COPY . .
 RUN touch src/main.rs
 RUN cargo build --release
 ```
+
+**Note**: Docker builds use incremental compilation since they run in isolation and don't conflict with CI's sccache usage.
 
 ### 6. sccache Integration
 
@@ -93,25 +97,27 @@ RUN cargo build --release
 
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
-| Build (incremental) | ~1m 12s | ~4.6s | 93% faster |
-| Tests (incremental) | ~1m 12s | ~16s | 78% faster |
-| Clippy (incremental) | ~1m | ~3.6s | 94% faster |
+| Build (cached) | ~1m 12s | ~4.6s | 93% faster |
+| Tests (cached) | ~1m 12s | ~16s | 78% faster |
+| Clippy (cached) | ~1m | ~3.6s | 94% faster |
 | Job Structure | Sequential | Parallel | 3x faster |
 | PR feedback | Always full build | Skip for docs-only | Conditional |
 
 ## Usage
 
-The optimizations are automatically applied. To test locally:
+The optimizations are automatically applied. To test locally with incremental compilation (separate from CI):
 
 ```bash
-# Run the benchmark script
+# Run the benchmark script (uses incremental compilation for local testing)
 ./scripts/benchmark-build.sh
 
-# Or manually test incremental builds
+# Or manually test incremental builds locally
 export CARGO_INCREMENTAL=1
 cargo build  # Initial build
 cargo build  # Should be much faster
 ```
+
+**Note**: Local development can use incremental compilation, while CI uses sccache for distributed caching across workflow runs.
 
 ## Monitoring
 

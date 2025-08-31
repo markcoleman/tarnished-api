@@ -9,7 +9,7 @@
     # Set the working directory inside the container
     WORKDIR /app
     
-    # Enable incremental compilation for faster builds
+    # Enable incremental compilation for faster Docker builds (Docker builds are isolated)
     ENV CARGO_INCREMENTAL=1
     ENV CARGO_NET_RETRY=10
     

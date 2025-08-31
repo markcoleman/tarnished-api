@@ -28,10 +28,8 @@ env:
   RUN_ID: ${{ github.run_id }}
   GITHUB_EVENT_PATH: ${{ github.event_path }}
   GITHUB_SHA: ${{ github.sha }}
-  # Enable incremental compilation globally
-  CARGO_INCREMENTAL: 1
   CARGO_NET_RETRY: 10
-  # Use GitHub Actions cache for sccache
+  # Use GitHub Actions cache for sccache (more effective than incremental compilation in CI)
   SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: "sccache"
 
