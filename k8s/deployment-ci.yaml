@@ -158,11 +158,11 @@ spec:
               httpHeaders:
                 - name: Accept
                   value: application/json
-            initialDelaySeconds: 10
+            initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 3
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /api/health
@@ -170,7 +170,7 @@ spec:
               httpHeaders:
                 - name: Accept
                   value: application/json
-            initialDelaySeconds: 15
+            initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 5
             successThreshold: 1
