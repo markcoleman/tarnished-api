@@ -31,7 +31,7 @@ env:
   CARGO_NET_RETRY: 10
   # Use GitHub Actions cache for sccache (more effective than incremental compilation in CI)
   SCCACHE_GHA_ENABLED: "true"
-  RUSTC_WRAPPER: "sccache"
+  # RUSTC_WRAPPER will be set conditionally after sccache setup validation
 
 jobs:
   # Check what files changed to conditionally skip expensive jobs
@@ -113,8 +113,38 @@ jobs:
         with:
           components: clippy, rustfmt
 
-      - name: Setup sccache
+      - name: Setup sccache with fallback
+        id: sccache-setup
+        run: |
+          echo "Setting up sccache with graceful fallback..."
+          # Always attempt to set up sccache first
+          echo "sccache-attempted=true" >> $GITHUB_OUTPUT
+
+      - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.7
+        id: sccache-install
+        continue-on-error: true
+
+      - name: Test and configure sccache
+        id: sccache-test
+        run: |
+          if command -v sccache >/dev/null 2>&1; then
+            echo "sccache binary found, testing GitHub Actions cache connectivity..."
+            # Test if sccache can connect to GitHub Actions cache
+            if timeout 30s sccache --start-server 2>/dev/null && timeout 10s sccache --show-stats >/dev/null 2>&1; then
+              echo "sccache=enabled" >> $GITHUB_OUTPUT
+              echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+              echo "✅ sccache enabled successfully"
+              sccache --show-stats || true
+            else
+              echo "sccache=disabled" >> $GITHUB_OUTPUT
+              echo "⚠️ sccache failed to connect to GitHub Actions cache service (likely temporary outage)"
+              echo "⚠️ Proceeding with compilation without distributed caching"
+            fi
+          else
+            echo "sccache=disabled" >> $GITHUB_OUTPUT
+            echo "⚠️ sccache installation failed, proceeding without caching"
+          fi
 
       - name: ${{ matrix.job }}
         uses: ./.github/actions/time-and-report
@@ -156,8 +186,38 @@ jobs:
         with:
           components: clippy, rustfmt
 
-      - name: Setup sccache
+      - name: Setup sccache with fallback
+        id: sccache-setup
+        run: |
+          echo "Setting up sccache with graceful fallback..."
+          # Always attempt to set up sccache first
+          echo "sccache-attempted=true" >> $GITHUB_OUTPUT
+
+      - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.7
+        id: sccache-install
+        continue-on-error: true
+
+      - name: Test and configure sccache
+        id: sccache-test
+        run: |
+          if command -v sccache >/dev/null 2>&1; then
+            echo "sccache binary found, testing GitHub Actions cache connectivity..."
+            # Test if sccache can connect to GitHub Actions cache
+            if timeout 30s sccache --start-server 2>/dev/null && timeout 10s sccache --show-stats >/dev/null 2>&1; then
+              echo "sccache=enabled" >> $GITHUB_OUTPUT
+              echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+              echo "✅ sccache enabled successfully"
+              sccache --show-stats || true
+            else
+              echo "sccache=disabled" >> $GITHUB_OUTPUT
+              echo "⚠️ sccache failed to connect to GitHub Actions cache service (likely temporary outage)"
+              echo "⚠️ Proceeding with compilation without distributed caching"
+            fi
+          else
+            echo "sccache=disabled" >> $GITHUB_OUTPUT
+            echo "⚠️ sccache installation failed, proceeding without caching"
+          fi
 
       - name: Generate Documentation
         uses: ./.github/actions/time-and-report
