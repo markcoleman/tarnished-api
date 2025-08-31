@@ -9,6 +9,10 @@
     # Set the working directory inside the container
     WORKDIR /app
     
+    # Enable incremental compilation for faster builds
+    ENV CARGO_INCREMENTAL=1
+    ENV CARGO_NET_RETRY=10
+    
     # Copy the Cargo manifest files for better caching.
     COPY Cargo.toml Cargo.lock ./
     
@@ -18,8 +22,14 @@
     # Cache dependencies without building the full project.
     RUN cargo fetch
     
+    # Build just the dependencies first for better layer caching
+    RUN cargo build --release && rm src/main.rs
+    
     # Now copy the actual project sources.
     COPY . .
+    
+    # Touch main.rs to ensure it's rebuilt with new source
+    RUN touch src/main.rs
     
     # Build the application in release mode.
     RUN cargo build --release

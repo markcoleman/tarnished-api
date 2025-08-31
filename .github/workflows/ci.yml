@@ -28,126 +28,138 @@ env:
   RUN_ID: ${{ github.run_id }}
   GITHUB_EVENT_PATH: ${{ github.event_path }}
   GITHUB_SHA: ${{ github.sha }}
+  # Enable incremental compilation globally
+  CARGO_INCREMENTAL: 1
+  CARGO_NET_RETRY: 10
+  # Use GitHub Actions cache for sccache
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
-  build:
-    name: Build
+  # Check what files changed to conditionally skip expensive jobs
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      docs-only: ${{ steps.changes.outputs.docs-only }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for documentation-only changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For PRs, check what files changed
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+            echo "Changed files: $CHANGED_FILES"
+            
+            # Check if only documentation files changed
+            if echo "$CHANGED_FILES" | grep -qvE '(\.(md|txt|rst)|^(docs/|LICENCE|CODEOWNERS|README|LICENSE))'; then
+              echo "docs-only=false" >> $GITHUB_OUTPUT
+            else
+              echo "docs-only=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            # For pushes, always run all jobs
+            echo "docs-only=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Use a matrix strategy to run all quality checks in parallel
+  quality:
+    name: ${{ matrix.job }}
+    runs-on: ubuntu-latest
+    needs: changes
+    # Skip for docs-only changes on PRs
+    if: needs.changes.outputs.docs-only != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job: "Build"
+            step: "build"
+            command: "cargo build --verbose"
+          - job: "Test"
+            step: "run_tests"
+            command: "cargo test --verbose"
+          - job: "Clippy"
+            step: "run_clippy"
+            command: "cargo clippy --all-targets --all-features -- -D warnings"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache Cargo registry
+      - name: Cache Cargo registry and git
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
-      - name: Cache Cargo build artifacts
+      - name: Cache target directory
         uses: actions/cache@v4
         with:
           path: target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-target-${{ matrix.step }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-target-${{ matrix.step }}-
+            ${{ runner.os }}-target-
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
 
-      - name: Build
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+
+      - name: ${{ matrix.job }}
         uses: ./.github/actions/time-and-report
         with:
-          step: "build"
-          command: "cargo build --verbose"
-
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache Cargo build artifacts
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-
-      - name: Run Tests
-        uses: ./.github/actions/time-and-report
-        with:
-          step: "run_tests"
-          command: "cargo test --verbose"
-
-  clippy:
-    name: Run Clippy
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache Cargo build artifacts
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-
-      - name: Run Clippy
-        uses: ./.github/actions/time-and-report
-        with:
-          step: "run_clippy"
-          command: "cargo clippy --all-targets --all-features -- -D warnings"
+          step: ${{ matrix.step }}
+          command: ${{ matrix.command }}
 
   docs:
     name: Generate Documentation
     runs-on: ubuntu-latest
-    needs: build
+    needs: changes
+    # Always run docs job since it can benefit from doc changes
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache Cargo registry
+      - name: Cache Cargo registry and git
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Cache target directory
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-target-docs-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-target-docs-
+            ${{ runner.os }}-target-
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
 
       - name: Generate Documentation
         uses: ./.github/actions/time-and-report
@@ -164,7 +176,10 @@ jobs:
   docker:
     name: Build Multi-Platform Docker Image
     runs-on: ubuntu-latest
-    needs: [build, test, clippy]
+    # Only need test to pass - build and clippy are checked independently
+    needs: [changes, quality]
+    # Skip for docs-only changes on PRs
+    if: needs.changes.outputs.docs-only != 'true'
     permissions:
       contents: read
       packages: write
@@ -334,7 +349,7 @@ jobs:
   kubernetes-validation:
     name: Validate Kubernetes Manifests
     runs-on: ubuntu-latest
-    needs: [build, test, clippy]
+    # Run independently - doesn't depend on Rust builds
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -373,8 +388,9 @@ jobs:
   deploy-validation:
     name: Deployment Validation Test
     runs-on: ubuntu-latest
-    needs: [docker, kubernetes-validation]
-    if: github.ref == 'refs/heads/main'
+    needs: [changes, docker, kubernetes-validation]
+    # Only run on main branch and skip for docs-only changes
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.docs-only != 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
