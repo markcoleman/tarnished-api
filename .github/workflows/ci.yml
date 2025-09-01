@@ -379,7 +379,7 @@ jobs:
           cosign-release: 'v2.4.1'
 
       - name: Download SBOM artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: sbom-artifacts
 
