@@ -14,6 +14,9 @@ use tarnished_api::{
     SuspiciousActivityTracker,
 };
 
+#[cfg(test)]
+mod container_binding_tests;
+
 const INDEX_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -91,6 +94,20 @@ async fn index(req: HttpRequest) -> HttpResponse {
 async fn main() -> std::io::Result<()> {
     // Initialize New Relic configuration
     let newrelic_config = NewRelicConfig::from_env();
+    
+    // Configure bind address - use 0.0.0.0 in containers, 127.0.0.1 for local development
+    let bind_address = std::env::var("BIND_ADDRESS")
+        .unwrap_or_else(|_| {
+            // Default to 0.0.0.0:8080 if we detect we're running in a container
+            // Check for common container environment indicators
+            if std::env::var("KUBERNETES_SERVICE_HOST").is_ok() ||
+               std::env::var("DOCKER_CONTAINER").is_ok() ||
+               std::path::Path::new("/.dockerenv").exists() {
+                "0.0.0.0:8080".to_string()
+            } else {
+                "127.0.0.1:8080".to_string()
+            }
+        });
 
     // Initialize New Relic tracing first if enabled
     if newrelic_config.enabled {
@@ -150,15 +167,16 @@ async fn main() -> std::io::Result<()> {
 
     // Print a startup message for convenience.
     tracing::info!(
-        message = "Server starting at http://127.0.0.1:8080",
+        message = %format!("Server starting at http://{}", bind_address),
+        bind_address = %bind_address,
         newrelic_enabled = newrelic_config.enabled,
         commit_sha = %std::env::var("GITHUB_SHA").unwrap_or_else(|_| "unknown".to_string()),
         git_ref = %std::env::var("GITHUB_REF").unwrap_or_else(|_| "unknown".to_string()),
         environment = %newrelic_config.environment,
     );
     tracing::info!(
-        message = "Server running at http://127.0.0.1:8080",
-        bind_address = "127.0.0.1:8080",
+        message = %format!("Server running at http://{}", bind_address),
+        bind_address = %bind_address,
         "Server startup complete"
     );
     tracing::info!(
@@ -204,7 +222,7 @@ async fn main() -> std::io::Result<()> {
             .with_json_spec_at("/api/spec/v2")
             .build()
     })
-    .bind("127.0.0.1:8080")?
+    .bind(&bind_address)?
     .run()
     .await?;
 

@@ -69,6 +69,12 @@ The deployment uses ConfigMaps and Secrets for configuration:
 - `metrics-enabled`: Enable Prometheus metrics (default: "true")
 - Security headers, rate limiting, and authentication settings
 
+#### Application-Specific Environment Variables
+- `BIND_ADDRESS`: Server bind address (default: auto-detects container environment)
+  - Local development: `127.0.0.1:8080`
+  - Container environments (Kubernetes/Docker): `0.0.0.0:8080`
+  - Can be explicitly set to override auto-detection
+
 #### Secrets (`k8s/secret.yaml`)
 - `hmac-secret`: HMAC signing secret
 - `new-relic-license-key`: New Relic license key
