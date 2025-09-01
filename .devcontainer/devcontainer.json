@@ -68,7 +68,7 @@
 	},
 	
 	// Post-creation commands to set up the development environment
-	"postCreateCommand": "rustup component add clippy rustfmt && cargo install cargo-watch cargo-audit cargo-outdated just && just setup",
+	"postCreateCommand": ".devcontainer/setup.sh",
 	
 	// Set environment variables
 	"containerEnv": {

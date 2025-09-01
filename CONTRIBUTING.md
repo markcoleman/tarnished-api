@@ -40,6 +40,12 @@ For the most consistent development experience, use the provided dev container:
 1. Open the repository in VS Code
 2. When prompted, click "Reopen in Container"
 3. All tools and extensions will be automatically installed
+4. Wait for the setup to complete (this may take a few minutes)
+
+**Troubleshooting Dev Container:**
+- If `just` command is not found, run: `source ~/.bashrc` or restart your terminal
+- The setup script automatically installs all development tools including `just`
+- Check the setup logs in the VS Code terminal for any issues
 
 ## 🛠️ Development Workflow
 
