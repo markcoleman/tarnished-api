@@ -121,7 +121,7 @@ jobs:
           echo "sccache-attempted=true" >> $GITHUB_OUTPUT
 
       - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@v0.0.9
         id: sccache-install
         continue-on-error: true
 
@@ -194,7 +194,7 @@ jobs:
           echo "sccache-attempted=true" >> $GITHUB_OUTPUT
 
       - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@v0.0.9
         id: sccache-install
         continue-on-error: true
 
