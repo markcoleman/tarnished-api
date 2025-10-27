@@ -67,7 +67,7 @@ jobs:
           echo "Finished fetching jobs and steps."
 
       - name: Upload jobs.json Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: jobs-json
           path: jobs.json
@@ -94,7 +94,7 @@ jobs:
           echo "Finished formatting jobs and steps."
 
       - name: Upload formatted_jobs.json Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: formatted-jobs-json
           path: formatted_jobs.json
