@@ -41,7 +41,7 @@ jobs:
       docs-only: ${{ steps.changes.outputs.docs-only }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -86,7 +86,7 @@ jobs:
             command: "cargo clippy --all-targets --all-features -- -D warnings"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Cache Cargo registry and git
         uses: actions/cache@v4
@@ -159,7 +159,7 @@ jobs:
     # Always run docs job since it can benefit from doc changes
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Cache Cargo registry and git
         uses: actions/cache@v4
@@ -245,7 +245,7 @@ jobs:
       attestations: write  # Required for attestations
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -371,7 +371,7 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
@@ -410,7 +410,7 @@ jobs:
     # Run independently - doesn't depend on Rust builds
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -451,7 +451,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && needs.changes.outputs.docs-only != 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
